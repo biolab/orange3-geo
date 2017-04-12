@@ -1,0 +1,4 @@
+include orangecontrib/gep/tutorials/*.ows
+include orangecontrib/geo/widgets/icons/*
+include orangecontrib/geo/widgets/_leaflet/*
+include orangecontrib/geo/geojson/*
