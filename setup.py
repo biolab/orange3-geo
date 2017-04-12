@@ -50,6 +50,7 @@ if __name__ == '__main__':
             'scikit-learn',
             'pandas',
             'scipy>=0.17',
+            'shapely',
         ],
         entry_points=ENTRY_POINTS,
         keywords=(
