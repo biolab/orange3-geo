@@ -1,4 +1,6 @@
 import json
+
+from operator import itemgetter
 from os import path
 from glob import glob
 
@@ -26,7 +28,7 @@ def init():
         admin = int(admin[-1])
         return admin, cc
 
-    centroids = {0: [], 1: [], 2: []}
+    nearest_points = {0: [], 1: [], 2: []}
     shapes = {0: [], 1: [], 2: []}
     cc_shapes = {}
     id_regions = {}
@@ -39,7 +41,6 @@ def init():
         for feature in collection['features']:
             p = feature['properties']
             shape = Shape(feature['geometry'])
-            centroid = (shape.centroid.y, shape.centroid.x)
             tup = (shape, p)
 
             # Add representative lat-lon pair if non-existent
@@ -59,12 +60,22 @@ def init():
                         dist = poly_ext.project(r)
                         pt = poly_ext.interpolate(dist)
                         r = Point(pt.coords[0])
-                        assert r.within(shape)
+                assert r.within(shape)
                 p.update(latitude=r.y, longitude=r.x)
 
-            id_regions[p['_id']] = tup + (centroid,)
-            shapes[admin].append(tup)
-            centroids[admin].append(centroid)
+            # Get representative points for the k-d tree
+            points = []
+            polygons = (shape,) if isinstance(shape, Polygon) else shape
+            for poly in polygons:
+                points.append([poly.centroid.y, poly.centroid.x])
+                if poly.area > 10:
+                    points.extend(xy[::-1]
+                                  for xy in poly.simplify(1).exterior.coords)
+
+            nearest_points[admin].extend(points)
+            tups = [tup] * len(points)
+            shapes[admin].extend(tups)
+            id_regions[p['_id']] = tup
 
             if admin == 0:
                 cc_shapes[p['adm0_a3']] = tup
@@ -72,15 +83,15 @@ def init():
             # Make Admin1 shapes available in Admin2 too. Except for USA
             # which is the country we have explicit Admin2 shapes for
             if admin == 1 and cc not in ADMIN2_COUNTRIES:
-                shapes[2].append(tup)
-                centroids[2].append(centroid)
+                shapes[2].extend(tups)
+                nearest_points[2].extend(points)
 
     kdtree = {admin: KDTree(centroids)
-              for admin, centroids in centroids.items()}
-    shapes = {admin: np.array(lst, dtype=object)
-              for admin, lst in shapes.items()}
+              for admin, centroids in nearest_points.items()}
     cc_shapes['NUL'] = (None, NUL)  # tuple for Null Island
 
+    assert all(len(nearest_points[admin]) == len(shapes[admin])
+               for admin in shapes)
     return shapes, cc_shapes, kdtree, id_regions
 
 
@@ -136,7 +147,9 @@ def get_bounding_rect(region_ids):
     """Return lat-lon bounding rect of the union of regions defined by ids"""
     if not region_ids:
         return None
-    centroids = np.array([ID_REGIONS[_id][2] for _id in region_ids])
+    coords = itemgetter('longitude', 'latitude')
+    centroids = np.array([coords(ID_REGIONS[_id][1])
+                          for _id in region_ids])
     mins, maxs = centroids.min(0), centroids.max(0)
     return tuple(mins.tolist() + maxs.tolist())
 
