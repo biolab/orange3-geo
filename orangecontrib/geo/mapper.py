@@ -5,10 +5,14 @@ from os import path
 from glob import glob
 
 import numpy as np
+import pandas as pd
 from sklearn.neighbors import KDTree
 
 import shapely.speedups
 from shapely.geometry import Point, shape as Shape, Polygon
+
+from orangecontrib.geo.cc_cities import \
+    CC_NAME_TO_CC_NAME, US_STATE_TO_US_STATE, EUROPE_CITIES, US_CITIES, WORLD_CITIES
 
 if shapely.speedups.available:
     shapely.speedups.enable()
@@ -32,6 +36,7 @@ def init():
     shapes = {0: [], 1: [], 2: []}
     cc_shapes = {}
     id_regions = {}
+    us_states = {}
     for filename in glob(path.join(GEOJSON_DIR, 'admin*.json')):
         admin, cc = _admin_cc(filename)
 
@@ -86,16 +91,82 @@ def init():
                 shapes[2].extend(tups)
                 nearest_points[2].extend(points)
 
+            if admin == 1 and cc == 'USA':
+                us_states[p['hasc'].split('.')[1]] = tup
+
     kdtree = {admin: KDTree(centroids)
               for admin, centroids in nearest_points.items()}
     cc_shapes['NUL'] = (None, NUL)  # tuple for Null Island
 
     assert all(len(nearest_points[admin]) == len(shapes[admin])
                for admin in shapes)
-    return shapes, cc_shapes, kdtree, id_regions
+
+    return shapes, cc_shapes, kdtree, id_regions, us_states
 
 
-SHAPES, CC_SHAPES, KDTREE, ID_REGIONS = init()
+SHAPES, CC_SHAPES, KDTREE, ID_REGIONS, US_STATES = init()
+
+
+class ToLatLon:
+    @classmethod
+    def _lookup(cls, mapping, key):
+        return {p[key]: p
+                for _, p in mapping.values()
+                if key in p}
+
+    @classmethod
+    def _get(cls, lookup, values, to_replace=None):
+        if to_replace:
+            assert isinstance(values, pd.Series)
+            values = values.replace(regex=to_replace)
+
+        NUL = {}
+        return [lookup.get(i, NUL) for i in values]
+
+    @classmethod
+    def from_cc_name(cls, values):
+        return cls._get(ToLatLon._lookup(CC_SHAPES, 'name'), values, CC_NAME_TO_CC_NAME)
+
+    @classmethod
+    def from_cc2(cls, values):
+        return cls._get(ToLatLon._lookup(CC_SHAPES, 'iso_a2'), values)
+
+    @classmethod
+    def from_cc3(cls, values):
+        return cls._get(ToLatLon._lookup(CC_SHAPES, 'iso_a3'), values)
+
+    @classmethod
+    def from_region(cls, values):
+        return cls._get(ToLatLon._lookup(ID_REGIONS, 'name'), values)
+
+    @classmethod
+    def from_fips(cls, values):
+        return cls._get(ToLatLon._lookup(ID_REGIONS, 'fips'), values)
+
+    @classmethod
+    def from_hasc(cls, values):
+        return cls._get(ToLatLon._lookup(ID_REGIONS, 'hasc'), values)
+
+    @classmethod
+    def from_us_state(cls, values):
+        lookup = ToLatLon._lookup(US_STATES, 'name')
+        lookup.update(US_STATES)
+        return cls._get(lookup, values, US_STATE_TO_US_STATE)
+
+    @classmethod
+    def from_city_eu(cls, values):
+        assert isinstance(values, pd.Series)
+        return cls.from_cc2(values.replace(regex=EUROPE_CITIES))
+
+    @classmethod
+    def from_city_us(cls, values):
+        assert isinstance(values, pd.Series)
+        return cls.from_us_state(values.replace(regex=US_CITIES))
+
+    @classmethod
+    def from_city_world(cls, values):
+        assert isinstance(values, pd.Series)
+        return cls.from_cc2(values.replace(regex=WORLD_CITIES))
 
 
 def latlon2region(latlon, admin=0):
