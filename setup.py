@@ -25,6 +25,19 @@ ENTRY_POINTS = {
 }
 
 
+def assert_release_contains_geojson():
+    import sys
+    from glob import glob
+
+    if any('dist' in arg for arg in sys.argv):
+        files = glob(path.join(path.dirname(__file__),
+                               'orangecontrib', 'geo', 'geojson', 'admin*.json'))
+        if not files:
+            raise RuntimeError('GeoJSON files missing in geojson folder. If '
+                               'this is a release, merge in the "json" branch. '
+                               'See CONTRIBUTING.md for info.')
+
+
 def _discover_tests():
     import unittest
     return unittest.defaultTestLoader.discover('orangecontrib.geo',
@@ -33,6 +46,9 @@ def _discover_tests():
 
 
 if __name__ == '__main__':
+
+    assert_release_contains_geojson()
+
     setup(
         name='Orange3-Geo',
         version=VERSION,
