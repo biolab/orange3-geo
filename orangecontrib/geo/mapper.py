@@ -37,7 +37,14 @@ def init():
     cc_shapes = {}
     id_regions = {}
     us_states = {}
-    for filename in glob(path.join(GEOJSON_DIR, 'admin*.json')):
+
+    files = glob(path.join(GEOJSON_DIR, 'admin*.json'))
+    if not files:
+        raise RuntimeError('Missing GeoJSON files. '
+                           'In development environments, merge in the "json" '
+                           'branch. See CONTRIBUTING.md')
+
+    for filename in files:
         admin, cc = _admin_cc(filename)
 
         with open(filename) as f:
