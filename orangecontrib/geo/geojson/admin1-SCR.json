@@ -1,0 +1,3 @@
+{"type":"FeatureCollection","features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[117.75388717800001,15.154369263000063],[117.75569233100015,15.151887178000052],[117.75388717800001,15.150082025000074],[117.7518563810001,15.151887178000052],[117.75388717800001,15.154369263000063]]]},"properties":{"latitude":15.1521,"_id":"SCR+00?","iso_a2":null,"adm0_a3":"SCR","type":null,"hasc":null,"longitude":117.754,"admin":"Scarborough Reef","name":"Scarborough Reef","fips":null}}
+]}

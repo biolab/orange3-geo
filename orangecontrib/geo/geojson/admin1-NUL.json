@@ -1,0 +1,3 @@
+{"type":"FeatureCollection","features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[-0.000004544999911,0.000004556000107],[0.000004508000131,0.000004556000107],[0.000004508000131,-0.000004496999935],[-0.000004544999911,-0.000004496999935],[-0.000004544999911,0.000004556000107]]]},"properties":{"latitude":2.60001e-8,"_id":"NUL+99?","iso_a2":null,"adm0_a3":"NUL","type":null,"hasc":null,"longitude":-1.29999e-8,"admin":"Null Island","name":null,"fips":null}}
+]}
