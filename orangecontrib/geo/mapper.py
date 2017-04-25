@@ -203,12 +203,12 @@ def latlon2region(latlon, admin=0):
     assert 0 <= admin <= 2
     global SHAPES, CC_SHAPES, KDTREE
 
-    latlon = np.asanyarray(latlon)
+    latlon = np.asanyarray(latlon, dtype=float)
 
     # Replace missing latlon data with invalid coordinates for k-d tree to work
     nan_rows = np.isnan(latlon).any(axis=1)
     if nan_rows.any():
-        latlon = np.array(latlon, dtype=float, order='C', copy=True)
+        latlon = np.array(latlon, order='C', copy=True)
         latlon[nan_rows, :] = -500
 
     out = []
