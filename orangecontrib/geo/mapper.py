@@ -14,8 +14,25 @@ from shapely.geometry import Point, shape as Shape, Polygon
 from orangecontrib.geo.cc_cities import \
     CC_NAME_TO_CC_NAME, US_STATE_TO_US_STATE, EUROPE_CITIES, US_CITIES, WORLD_CITIES
 
-if shapely.speedups.available:
-    shapely.speedups.enable()
+
+def is_shapely_speedups_available():
+    if not shapely.speedups.available:
+        return False
+    # Otherwise try shapely with speedups in a subprocess to see if shit
+    # is crash due to ABI-incompatible libgeos found in path on Loonix
+    import sys, subprocess
+    proc = subprocess.Popen(
+        sys.executable + ' -c ' + '''"import json
+from shapely.geometry import shape
+import shapely.speedups
+shapely.speedups.enable()
+shape(json.load(open('%s'))['features'][0]['geometry'])
+print('Note: Shapely speedups available', flush=True)
+"''' % path.join(GEOJSON_DIR, 'admin0.json'),
+        # Didn't return correct exit status without shell=True
+        shell=True)
+    proc.wait()
+    return proc.returncode == 0
 
 
 GEOJSON_DIR = path.join(path.dirname(__file__), 'geojson')
@@ -23,6 +40,10 @@ GEOJSON_DIR = path.join(path.dirname(__file__), 'geojson')
 ADMIN2_COUNTRIES = {path.basename(filename).split('.')[0].split('-')[1]
                     for filename in glob(path.join(GEOJSON_DIR, 'admin2-*.json'))}
 NUL = {}  # nonmapped (invalid) output region
+
+
+if is_shapely_speedups_available():
+    shapely.speedups.enable()
 
 
 def init():
