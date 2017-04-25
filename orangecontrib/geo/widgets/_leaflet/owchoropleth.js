@@ -1,8 +1,3 @@
-// Polyfill for Object.values()
-Object.values = Object.values || function(obj) {
-    return Object.keys(obj).map(function(key) { return obj[key]; });
-};
-
 var map = L.map('map', {
     // preferCanvas: true,
     minZoom: 2,
@@ -59,18 +54,31 @@ function _tooltip(layer) {
 }
 
 var selection = {};
-function _unselect_layer(layer) {
+function _select_layer(id) {
+    if (isNaN(results.values[id]))
+        return;
+    selection[id] = 1;
+    var layer = geojson_layers_by_id[id]
+    layer.setStyle({color:'orangeRed', weight:3});
+    var el = layer.getElement();
+    el.parentNode.appendChild(el);
+}
+function _unselect_layer(id) {
+    var layer = geojson_layers_by_id[id];
+    // Fully override orangeRed from selection, otherwise ghosted stroke persists
+    layer.setStyle({color: 'white', weight: 3});
+
     layer.setStyle({color: 'white', weight: .5});
     var el = layer.getElement();
     el.parentNode && el.parentNode.insertBefore(el, el.parentNode.childNodes[0]);
+    delete selection[id];
 }
 function _on_click(event) {
     var append = event.originalEvent.shiftKey,
         toggle = event.originalEvent.ctrlKey,
         layer = event.target;
     if (!(append || toggle)) {
-        Object.values(selection).forEach(_unselect_layer);
-        selection = {};
+        Object.keys(selection).forEach(_unselect_layer);
     }
     try {
         var id = layer.feature.properties._id;
@@ -84,19 +92,25 @@ function _on_click(event) {
         return;
 
     if (toggle && selection[id]) {
-        _unselect_layer(selection[id]);
-        delete selection[id];
+        _unselect_layer(id);
     } else {
-        selection[id] = layer;
-        layer.setStyle({color:'orangeRed', weight:3});
-        var el = layer.getElement();
-        el.parentNode.appendChild(el);
+        _select_layer(id);
     }
     pybridge.selection(Object.keys(selection));
     // If clicked on feature, don't propagate to clicked-on-map-sea
     L.DomEvent.stopPropagation(event);
 }
 map.on('click', _on_click);
+function set_region_selection(user_selection) {
+    selection = {};
+    user_selection.forEach(function (id) {selection[id] = 1;});
+}
+function apply_region_selection() {
+    Object.keys(selection).forEach(function (id) {
+        _select_layer(id);
+    });
+    pybridge.selection(Object.keys(selection));
+}
 
 var fill_opacity = .7;
 function set_opacity(opacity) {
@@ -153,6 +167,7 @@ function toggle_tooltip_details(show) {
 }
 
 var geojson_layers = [];
+var geojson_layers_by_id = {};
 
 function add_geojson_layer(geojson) {
     var choroplethLayer = L.choropleth(geojson, {
@@ -172,9 +187,12 @@ function add_geojson_layer(geojson) {
             };
         },
         onEachFeature: function (feature, layer) {
+            var id = feature.properties._id;
+            geojson_layers_by_id[id] = layer;
             layer.bindTooltip(_tooltip, {sticky: true});
             layer.on('click', _on_click);
-            if (typeof results.values[feature.properties._id] === 'undefined')
+            // No border on shapes without data
+            if (typeof results.values[id] === 'undefined')
                 layer.setStyle({weight: 0});
         }
     }).addTo(map);
@@ -188,6 +206,7 @@ function add_geojson_layer(geojson) {
                 layer.setStyle({fillColor: results.colors[value]});
         });
     }
+    apply_region_selection();
 }
 
 var json_cache = {};

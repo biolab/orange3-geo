@@ -77,6 +77,9 @@ class LeafletChoropleth(WebviewWidget):
     def toggle_tooltip_details(self, visible):
         self.evalJS('''toggle_tooltip_details(%d);''' % (int(bool(visible))))
 
+    def preset_region_selection(self, selection):
+        self.evalJS('''set_region_selection(%s);''' % selection)
+
 
 class OWChoropleth(widget.OWWidget):
     name = 'Choropleth'
@@ -125,6 +128,7 @@ class OWChoropleth(widget.OWWidget):
     show_labels = settings.Setting(True)
     show_legend = settings.Setting(True)
     show_details = settings.Setting(True)
+    selection = settings.ContextSetting([])
 
     class Error(widget.OWWidget.Error):
         aggregation_discrete = widget.Msg("Only certain types of aggregation defined on categorical attributes: {}")
@@ -138,15 +142,14 @@ class OWChoropleth(widget.OWWidget):
         super().__init__()
         self.map = map = LeafletChoropleth(self)
         self.mainArea.layout().addWidget(map)
-        self.selection = None
+        self.selection = []
         self.data = None
         self.latlon = None
         self.result_min_nonpositive = False
 
         def selectionChanged(selection):
-            indices = self.ids.isin(selection).nonzero()[0]
-            self.selection = self.data[indices] if self.data is not None and selection else None
-            self._indices = indices
+            self._indices = self.ids.isin(selection).nonzero()[0]
+            self.selection = selection
             self.commit()
 
         map.selectionChanged.connect(selectionChanged)
@@ -226,7 +229,8 @@ class OWChoropleth(widget.OWWidget):
         self.map = None
 
     def commit(self):
-        self.send('Selected Data', self.selection)
+        self.send('Selected Data',
+                  self.data[self._indices] if self.data is not None and self.selection else None)
         self.send(ANNOTATED_DATA_SIGNAL_NAME,
                   create_annotated_table(self.data, self._indices))
 
@@ -260,6 +264,8 @@ class OWChoropleth(widget.OWWidget):
 
         self.openContext(data)
 
+        if self.selection:
+            self.map.preset_region_selection(self.selection)
         self.aggregate()
         self.map.fit_to_bounds()
 
@@ -278,8 +284,15 @@ class OWChoropleth(widget.OWWidget):
         else:
             self.Error.aggregation_discrete.clear()
 
-        regions, adm0, result, self.map.bounds = \
-            self.get_grouped(self.admin, self.attr, self.agg_func)
+        try:
+            regions, adm0, result, self.map.bounds = \
+                self.get_grouped(self.admin, self.attr, self.agg_func)
+        except ValueError:
+            # This might happen if widget scheme File→Choropleth, and
+            # some attr is selected in choropleth, and then the same attr
+            # is set to string attr in File and dataset reloaded.
+            # Our "dataflow" arch can suck my balls
+            return
         discrete_values = list(attr.values) if attr.is_discrete and not self.agg_func.startswith('Count') else []
 
         self.result_min_nonpositive = attr.is_continuous and result.min() <= 0
@@ -335,6 +348,7 @@ class OWChoropleth(widget.OWWidget):
                 self.get_grouped.cache_clear()
             except AttributeError:
                 pass  # back-compat https://github.com/biolab/orange3/pull/2229
+        self.selection = []
         self.map.exposeObject('results', {})
         self.map.evalJS('replot();')
 
