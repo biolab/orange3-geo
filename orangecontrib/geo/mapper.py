@@ -5,6 +5,7 @@ from functools import lru_cache, wraps
 from operator import itemgetter
 from os import path
 from glob import glob
+import logging
 
 import simplejson as json
 import numpy as np
@@ -16,6 +17,9 @@ from shapely.geometry import Point, shape as Shape, Polygon
 
 from orangecontrib.geo.cc_cities import \
     CC_NAME_TO_CC_NAME, US_STATE_TO_US_STATE, EUROPE_CITIES, US_CITIES, WORLD_CITIES
+
+
+log = logging.getLogger(__name__)
 
 
 def is_shapely_speedups_available():
@@ -30,7 +34,6 @@ from shapely.geometry import shape
 import shapely.speedups
 shapely.speedups.enable()
 shape(json.load(open('%s'))['features'][0]['geometry'])
-print('Note: Shapely speedups available', flush=True)
 "''' % path.join(GEOJSON_DIR, 'admin0.json'),
         # Didn't return correct exit status without shell=True
         shell=True)
@@ -47,6 +50,7 @@ NUL = {}  # nonmapped (invalid) output region
 
 if is_shapely_speedups_available():
     shapely.speedups.enable()
+    log.debug('Shapely speed-ups available')
 
 
 def wait_until_loaded(func):
@@ -81,6 +85,7 @@ def init():
                            'In development environments, merge in the "json" '
                            'branch. See CONTRIBUTING.md')
 
+    log.debug('Loading GeoJSON data ...')
     for filename in files:
         admin, cc = _admin_cc(filename)
 
@@ -233,6 +238,8 @@ def latlon2region(latlon, admin=0):
     global SHAPES, CC_SHAPES, KDTREE
 
     latlon = np.asanyarray(latlon, dtype=float)
+
+    log.debug('Mapping %d coordinate pairs into regions', len(latlon))
 
     # Replace missing latlon data with invalid coordinates for k-d tree to work
     nan_rows = np.isnan(latlon).any(axis=1)

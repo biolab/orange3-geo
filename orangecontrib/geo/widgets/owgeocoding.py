@@ -1,4 +1,4 @@
-import os
+import logging
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,9 @@ from Orange.widgets.utils.itemmodels import DomainModel
 
 from orangecontrib.geo.utils import find_lat_lon
 from orangecontrib.geo.mapper import latlon2region, ToLatLon
+
+
+log = logging.getLogger(__name__)
 
 
 def available_name(domain, template):
@@ -149,6 +152,7 @@ class OWGeocoding(widget.OWWidget):
         if self.data.domain[self.str_attr].is_discrete:
             values = np.array(self.data.domain[self.str_attr].values)[values.astype(int)].astype(str)
 
+        log.debug('Geocoding %d regions into coordinates', len(values))
         latlon = pd.DataFrame(self.ID_TYPE[self.str_type](pd.Series(values)))
         return self._to_addendum(latlon, ['latitude', 'longitude'])
 
