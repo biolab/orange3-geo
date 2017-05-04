@@ -1,10 +1,10 @@
-import json
 from functools import lru_cache
 
 from operator import itemgetter
 from os import path
 from glob import glob
 
+import simplejson as json
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import KDTree

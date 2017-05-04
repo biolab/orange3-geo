@@ -67,6 +67,7 @@ if __name__ == '__main__':
             'pandas',
             'scipy>=0.17',
             'shapely',
+            'simplejson',
         ],
         entry_points=ENTRY_POINTS,
         keywords=(
