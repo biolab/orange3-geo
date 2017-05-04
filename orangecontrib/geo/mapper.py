@@ -1,4 +1,6 @@
-from functools import lru_cache
+import time
+from threading import Thread
+from functools import lru_cache, wraps
 
 from operator import itemgetter
 from os import path
@@ -45,6 +47,19 @@ NUL = {}  # nonmapped (invalid) output region
 
 if is_shapely_speedups_available():
     shapely.speedups.enable()
+
+
+def wait_until_loaded(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        global is_done_loading
+        while not is_done_loading:
+            time.sleep(.1)
+        return func(*args, **kwargs)
+    return wrapper
+
+
+is_done_loading = False
 
 
 def init():
@@ -130,10 +145,12 @@ def init():
     assert all(len(nearest_points[admin]) == len(shapes[admin])
                for admin in shapes)
 
-    return shapes, cc_shapes, kdtree, id_regions, us_states
+    global is_done_loading, SHAPES, CC_SHAPES, KDTREE, ID_REGIONS, US_STATES
+    SHAPES, CC_SHAPES, KDTREE, ID_REGIONS, US_STATES = shapes, cc_shapes, kdtree, id_regions, us_states
+    is_done_loading = True
+    return
 
-
-SHAPES, CC_SHAPES, KDTREE, ID_REGIONS, US_STATES = init()
+Thread(target=init).start()
 
 
 class ToLatLon:
@@ -153,51 +170,62 @@ class ToLatLon:
         return [lookup.get(i, NUL) for i in values]
 
     @classmethod
+    @wait_until_loaded
     def from_cc_name(cls, values):
         return cls._get(ToLatLon._lookup(CC_SHAPES, 'name'), values, CC_NAME_TO_CC_NAME)
 
     @classmethod
+    @wait_until_loaded
     def from_cc2(cls, values):
         return cls._get(ToLatLon._lookup(CC_SHAPES, 'iso_a2'), values)
 
     @classmethod
+    @wait_until_loaded
     def from_cc3(cls, values):
         return cls._get(ToLatLon._lookup(CC_SHAPES, 'iso_a3'), values)
 
     @classmethod
+    @wait_until_loaded
     def from_region(cls, values):
         return cls._get(ToLatLon._lookup(ID_REGIONS, 'name'), values)
 
     @classmethod
+    @wait_until_loaded
     def from_fips(cls, values):
         return cls._get(ToLatLon._lookup(ID_REGIONS, 'fips'), values)
 
     @classmethod
+    @wait_until_loaded
     def from_hasc(cls, values):
         return cls._get(ToLatLon._lookup(ID_REGIONS, 'hasc'), values)
 
     @classmethod
+    @wait_until_loaded
     def from_us_state(cls, values):
         lookup = ToLatLon._lookup(US_STATES, 'name')
         lookup.update(US_STATES)
         return cls._get(lookup, values, US_STATE_TO_US_STATE)
 
     @classmethod
+    @wait_until_loaded
     def from_city_eu(cls, values):
         assert isinstance(values, pd.Series)
         return cls.from_cc2(values.replace(regex=EUROPE_CITIES))
 
     @classmethod
+    @wait_until_loaded
     def from_city_us(cls, values):
         assert isinstance(values, pd.Series)
         return cls.from_us_state(values.replace(regex=US_CITIES))
 
     @classmethod
+    @wait_until_loaded
     def from_city_world(cls, values):
         assert isinstance(values, pd.Series)
         return cls.from_cc2(values.replace(regex=WORLD_CITIES))
 
 
+@wait_until_loaded
 def latlon2region(latlon, admin=0):
     """Return list of property dicts for regions mapped by latlon coordinates"""
     assert len(latlon) == 0 or len(latlon[0]) == 2
@@ -244,6 +272,7 @@ def latlon2region(latlon, admin=0):
     return out
 
 
+@wait_until_loaded
 def get_bounding_rect(region_ids):
     """Return lat-lon bounding rect of the union of regions defined by ids"""
     if not region_ids:
@@ -256,8 +285,9 @@ def get_bounding_rect(region_ids):
 
 
 if __name__ == '__main__':
-    import time
     from pprint import pprint
+
+    pprint(ToLatLon.from_cc2(pd.Series(['RU', 'SI'])))
 
     coords = [
         (46.0555, 14.5083),
