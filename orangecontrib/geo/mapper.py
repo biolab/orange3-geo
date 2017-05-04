@@ -1,4 +1,5 @@
 import json
+from functools import lru_cache
 
 from operator import itemgetter
 from os import path
@@ -211,29 +212,30 @@ def latlon2region(latlon, admin=0):
         latlon = np.array(latlon, order='C', copy=True)
         latlon[nan_rows, :] = -500
 
-    out = []
-    shapes = SHAPES[admin or 1]
-    for isnan, point, inds in zip(nan_rows,
-                                  (Point(x, y) for y, x in latlon),
-                                  KDTREE[admin or 1].query(latlon, k=30,
-                                                           return_distance=False,
-                                                           sort_results=True)):
-        if isnan:
-            out.append(NUL)
-            continue
+    @lru_cache(700)
+    def resolve_coords(coord):
+        """Cached resolution.
+        shape.contains(point) test is what takes the most time
+        """
+        nonlocal inds, shapes
+        point = Point(*coord)
         for i in inds:
             shape, props = shapes[i]
             if shape.contains(point):
-                out.append(props)
-                break
-        else:
-            # No shapes contain point. See if distance to nearest neighbor
-            # is less than threshold (i.e. point very near but outside shape)
-            shape, props = shapes[sorted(inds, key=lambda i: shapes[i][0].distance(point))[0]]
-            if shape.distance(point) < .2:
-                out.append(props)
-            else:
-                out.append(NUL)
+                return props
+        # No shapes contain point. See if distance to nearest neighbor
+        # is less than threshold (i.e. point very near but outside shape)
+        shape, props = shapes[sorted(inds, key=lambda i: shapes[i][0].distance(point))[0]]
+        return props if shape.distance(point) < .2 else NUL
+
+    out = []
+    shapes = SHAPES[admin or 1]
+    for isnan, coord, inds in zip(nan_rows,
+                                  np.roll(latlon, -1, axis=1),
+                                  KDTREE[admin or 1].query(latlon, k=30,
+                                                           return_distance=False,
+                                                           sort_results=True)):
+        out.append(NUL if isnan else resolve_coords(tuple(coord)))
 
     if admin == 0:
         out = [i and CC_SHAPES[i['adm0_a3']][1] for i in out]
