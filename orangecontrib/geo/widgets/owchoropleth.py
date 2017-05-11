@@ -156,20 +156,15 @@ class OWChoropleth(widget.OWWidget):
 
         box = gui.vBox(self.controlArea, 'Aggregation')
 
-        def _set_latlon():
-            self.latlon = np.c_[self.data.get_column_view(self.lat_attr)[0],
-                                self.data.get_column_view(self.lon_attr)[0]]
-            self.aggregate()
-
         self._latlon_model = DomainModel(parent=self, valid_types=ContinuousVariable)
         self._combo_lat = combo = gui.comboBox(
             box, self, 'lat_attr', orientation=Qt.Horizontal,
-            label='Latitude:', sendSelectedValue=True, callback=_set_latlon)
+            label='Latitude:', sendSelectedValue=True, callback=self.aggregate)
         combo.setModel(self._latlon_model)
 
         self._combo_lon = combo = gui.comboBox(
             box, self, 'lon_attr', orientation=Qt.Horizontal,
-            label='Longitude:', sendSelectedValue=True, callback=_set_latlon)
+            label='Longitude:', sendSelectedValue=True, callback=self.aggregate)
         combo.setModel(self._latlon_model)
 
         self._combo_attr = combo = gui.comboBox(
@@ -286,7 +281,7 @@ class OWChoropleth(widget.OWWidget):
 
         try:
             regions, adm0, result, self.map.bounds = \
-                self.get_grouped(self.admin, self.attr, self.agg_func)
+                self.get_grouped(self.lat_attr, self.lon_attr, self.admin, self.attr, self.agg_func)
         except ValueError:
             # This might happen if widget scheme File→Choropleth, and
             # some attr is selected in choropleth, and then the same attr
@@ -319,8 +314,10 @@ class OWChoropleth(widget.OWWidget):
         self.map.evalJS('replot();')
 
     @memoize_method(3)
-    def get_regions(self, admin):
-        regions = latlon2region(self.latlon, admin)
+    def get_regions(self, lat_attr, lon_attr, admin):
+        latlon = np.c_[self.data.get_column_view(lat_attr)[0],
+                       self.data.get_column_view(lon_attr)[0]]
+        regions = latlon2region(latlon, admin)
         adm0 = ({'0'} if admin == 0 else
                 {'1-' + a3 for a3 in (i.get('adm0_a3') for i in regions) if a3} if admin == 1 else
                 {('2-' if a3 in ADMIN2_COUNTRIES else '1-') + a3
@@ -332,8 +329,8 @@ class OWChoropleth(widget.OWWidget):
         return regions, ids, adm0, bounds
 
     @memoize_method(6)
-    def get_grouped(self, admin, attr, agg_func):
-        regions, ids, adm0, bounds = self.get_regions(admin)
+    def get_grouped(self, lat_attr, lon_attr, admin, attr, agg_func):
+        regions, ids, adm0, bounds = self.get_regions(lat_attr, lon_attr, admin)
         attr = self.data.domain[attr]
         result = pd.Series(self.data.get_column_view(attr)[0], dtype=float)\
             .groupby(ids)\
