@@ -82,7 +82,7 @@ var zoomButton = L.easyButton({
     }]
 }).addTo(map);
 
-var heatmapLayer = L.imageOverlay('data:', [[0, 0], [0, 0]], {attribution: 'Orange – Data Mining Fruitful &amp; Fun'}).addTo(map);
+var heatmapLayer = L.imageOverlay('data:', [[0, 0], [0, 0]]).addTo(map);
 var markersImageLayer = L.imageOverlay(_TRANSPARENT_IMAGE, [[0, 0], [0, 0]]).addTo(map);
 
 var BoxSelect = L.Map.BoxZoom.extend({
