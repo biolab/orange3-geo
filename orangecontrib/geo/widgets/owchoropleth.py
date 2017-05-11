@@ -1,4 +1,5 @@
 import os
+import logging
 
 import numpy as np
 import pandas as pd
@@ -20,6 +21,9 @@ from orangecontrib.geo.mapper import latlon2region, ADMIN2_COUNTRIES, get_boundi
 
 if QT_VERSION_STR <= '5.3':
     raise RuntimeError('Choropleth widget only works with Qt 5.3+')
+
+
+log = logging.getLogger(__name__)
 
 
 # Test that memoize_method exposes cache_clear(), avoid otherwise
@@ -330,6 +334,8 @@ class OWChoropleth(widget.OWWidget):
 
     @memoize_method(6)
     def get_grouped(self, lat_attr, lon_attr, admin, attr, agg_func):
+        log.debug('Grouping %s(%s) by (%s, %s; admin%d)',
+                  agg_func, attr, lat_attr,  lon_attr, admin)
         regions, ids, adm0, bounds = self.get_regions(lat_attr, lon_attr, admin)
         attr = self.data.domain[attr]
         result = pd.Series(self.data.get_column_view(attr)[0], dtype=float)\
