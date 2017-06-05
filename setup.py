@@ -4,7 +4,7 @@ from os import path
 from setuptools import setup, find_packages
 
 
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 
 ENTRY_POINTS = {
     # Entry points that marks this package as an orange add-on. If set, addon will
