@@ -89,8 +89,8 @@ def init():
     for filename in files:
         admin, cc = _admin_cc(filename)
 
-        with open(filename) as f:
-            collection = json.load(f)
+        with open(filename, encoding='utf-8') as f:
+            collection = json.load(f, encoding='utf-8')
 
         for feature in collection['features']:
             p = feature['properties']
