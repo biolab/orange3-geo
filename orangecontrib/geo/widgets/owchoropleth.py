@@ -57,11 +57,12 @@ class LeafletChoropleth(WebviewWidget):
         if self.bounds is None:
             return
         east, south, west, north = self.bounds
+        maxzoom = 5 if self._owwidget.admin == 0 else 7
         self.evalJS('''
             map.flyToBounds([[%f, %f], [%f, %f]], {
-                padding: [0,0], minZoom: 2, maxZoom: 7,
+                padding: [0,0], minZoom: 2, maxZoom: %d,
                 duration: .6, easeLinearity: .4
-            });''' % (north, west, south, east))
+            });''' % (north, west, south, east, maxzoom))
 
     def set_opacity(self, opacity):
         self.evalJS('''set_opacity(%f);''' % (opacity / 100))
