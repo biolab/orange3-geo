@@ -313,7 +313,8 @@ class OWChoropleth(widget.OWWidget):
                  have_nonpositive=self.result_min_nonpositive or discrete_values,
                  values=result.to_dict(),
                  repr_vals=result.map(attr.repr_val).to_dict() if repr_time else {},
-                 minmax=([attr.repr_val(result.min()), attr.repr_val(result.max())] if repr_time or not discrete_values else
+                 minmax=([result.min(), result.max()] if attr.is_discrete and not discrete_values else
+                         [attr.repr_val(result.min()), attr.repr_val(result.max())] if repr_time or not discrete_values else
                          [])))
 
         self.map.evalJS('replot();')
