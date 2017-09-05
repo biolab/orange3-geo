@@ -5,6 +5,7 @@ import pandas as pd
 from collections import OrderedDict
 
 from AnyQt.QtCore import Qt
+from AnyQt.QtWidgets import QComboBox
 
 from Orange.data import Table, Domain, StringVariable, DiscreteVariable, ContinuousVariable
 from Orange.widgets import gui, widget, settings
@@ -95,6 +96,11 @@ class OWGeocoding(widget.OWWidget):
             box, self, 'str_type', label='Identifier type:', orientation=Qt.Horizontal,
             items=tuple(self.ID_TYPE.keys()), callback=lambda: self.commit(), sendSelectedValue=True)
 
+        # Select first mode if any of its combos are changed
+        for combo in box.findChildren(QComboBox):
+            combo.currentIndexChanged.connect(
+                lambda: setattr(self, 'is_decoding', 0))
+
         gui.appendRadioButton(
             modes, '&Decode latitude and longitude into regions:', insertInto=top)
         box = gui.indentedBox(top)
@@ -107,13 +113,18 @@ class OWGeocoding(widget.OWWidget):
         combo = gui.comboBox(
             box, self, 'lon_attr', label='Longitude:', orientation=Qt.Horizontal,
             callback=lambda: self.commit(), sendSelectedValue=True)
+        combo.setModel(model)
         gui.comboBox(
             box, self, 'admin', label='Administrative level:', orientation=Qt.Horizontal,
             callback=lambda: self.commit(),
             items=('Country',
                    '1st-level subdivision (state, region, province, municipality, ...)',
                    '2nd-level subdivisions (1st-level & US counties)'),)
-        combo.setModel(model)
+
+        # Select second mode if any of its combos are changed
+        for combo in box.findChildren(QComboBox):
+            combo.currentIndexChanged.connect(
+                lambda: setattr(self, 'is_decoding', 1))
 
         gui.checkBox(
             top, self, 'append_features',
