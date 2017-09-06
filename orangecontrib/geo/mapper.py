@@ -208,7 +208,8 @@ class ToLatLon:
     @wait_until_loaded
     def from_us_state(cls, values):
         lookup = ToLatLon._lookup(US_STATES, 'name')
-        lookup.update(US_STATES)
+        lookup.update({short_name: data
+                       for short_name, (_polygon, data) in US_STATES.items()})
         return cls._get(lookup, values, US_STATE_TO_US_STATE)
 
     @classmethod
