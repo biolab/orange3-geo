@@ -166,7 +166,9 @@ class OWGeocoding(widget.OWWidget):
         latlon = np.c_[self.data.get_column_view(self.lat_attr)[0],
                        self.data.get_column_view(self.lon_attr)[0]]
         assert isinstance(self.admin, int)
-        regions = pd.DataFrame(latlon2region(latlon, self.admin))
+        with self.progressBar(2) as progress:
+            progress.advance()
+            regions = pd.DataFrame(latlon2region(latlon, self.admin))
         return self._to_addendum(regions, ['name'])
 
     def encode(self):
@@ -174,7 +176,9 @@ class OWGeocoding(widget.OWWidget):
             return None
         values = self._get_data_values()
         log.debug('Geocoding %d regions into coordinates', len(values))
-        latlon = pd.DataFrame(self.ID_TYPE[self.str_type](values))
+        with self.progressBar(2) as progress:
+            progress.advance()
+            latlon = pd.DataFrame(self.ID_TYPE[self.str_type](values))
         return self._to_addendum(latlon, ['latitude', 'longitude'])
 
     def _get_data_values(self):
@@ -225,7 +229,7 @@ def main():
     ow = OWGeocoding()
     ow.show()
     ow.raise_()
-    data = Table('/home/jk/PycharmProjects/orange3/geo/small_airports.csv')
+    data = Table('philadelphia-crime')
     print(data[:10])
     ow.set_data(data)
 
