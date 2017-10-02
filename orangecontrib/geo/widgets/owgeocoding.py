@@ -88,9 +88,23 @@ class OWGeocoding(widget.OWWidget):
         box = gui.indentedBox(top)
         model = DomainModel(parent=self, valid_types=(StringVariable, DiscreteVariable))
         self.domainmodels.append(model)
+
+        def _region_attr_changed():
+            if self.data is None:
+                return
+
+            # Auto-detect the type of region in the attribute and set its combo
+            values = self._get_data_values()
+            func = ToLatLon.detect_input(values)
+            str_type = next((k for k, v in self.ID_TYPE.items() if v == func), None)
+            if str_type is not None and str_type != self.str_type:
+                self.str_type = str_type
+
+            self.commit()
+
         combo = gui.comboBox(
             box, self, 'str_attr', label='Region identifier:', orientation=Qt.Horizontal,
-            callback=lambda: self.commit(), sendSelectedValue=True)
+            callback=_region_attr_changed, sendSelectedValue=True)
         combo.setModel(model)
         gui.comboBox(
             box, self, 'str_type', label='Identifier type:', orientation=Qt.Horizontal,
@@ -152,20 +166,29 @@ class OWGeocoding(widget.OWWidget):
         latlon = np.c_[self.data.get_column_view(self.lat_attr)[0],
                        self.data.get_column_view(self.lon_attr)[0]]
         assert isinstance(self.admin, int)
-        regions = pd.DataFrame(latlon2region(latlon, self.admin))
+        with self.progressBar(2) as progress:
+            progress.advance()
+            regions = pd.DataFrame(latlon2region(latlon, self.admin))
         return self._to_addendum(regions, ['name'])
 
     def encode(self):
         if self.data is None or not len(self.data) or self.str_attr not in self.data.domain:
             return None
+        values = self._get_data_values()
+        log.debug('Geocoding %d regions into coordinates', len(values))
+        with self.progressBar(2) as progress:
+            progress.advance()
+            latlon = pd.DataFrame(self.ID_TYPE[self.str_type](values))
+        return self._to_addendum(latlon, ['latitude', 'longitude'])
+
+    def _get_data_values(self):
+        if self.data is None:
+            return None
         values = self.data.get_column_view(self.str_attr)[0]
         # no comment
         if self.data.domain[self.str_attr].is_discrete:
-            values = np.array(self.data.domain[self.str_attr].values)[values.astype(int)].astype(str)
-
-        log.debug('Geocoding %d regions into coordinates', len(values))
-        latlon = pd.DataFrame(self.ID_TYPE[self.str_type](pd.Series(values)))
-        return self._to_addendum(latlon, ['latitude', 'longitude'])
+            values = np.array(self.data.domain[self.str_attr].values)[values.astype(np.int16)].astype(str)
+        return pd.Series(values)
 
     def _to_addendum(self, df, keep):
         if not df.shape[1]:
@@ -192,8 +215,6 @@ class OWGeocoding(widget.OWWidget):
             model.set_domain(data.domain)
 
         lat, lon = find_lat_lon(data)
-        # if lat: self.controls.lat_attr.setCurrentText(lat.name)
-        # if lon: self.controls.lon_attr.setCurrentText(lon.name)
         self.lat_attr = lat.name if lat else None
         self.lon_attr = lon.name if lon else None
 
@@ -208,7 +229,7 @@ def main():
     ow = OWGeocoding()
     ow.show()
     ow.raise_()
-    data = Table('/home/jk/PycharmProjects/orange3/geo/small_airports.csv')
+    data = Table('philadelphia-crime')
     print(data[:10])
     ow.set_data(data)
 

@@ -230,6 +230,28 @@ class ToLatLon:
         assert isinstance(values, pd.Series)
         return cls.from_cc2(values.replace(regex=WORLD_CITIES))
 
+    @classmethod
+    def detect_input(cls, values):
+        """
+        Return first "from_" method that in more than 50% matches values,
+        or None.
+        """
+        assert isinstance(values, pd.Series)
+        values = values.drop_duplicates().dropna()
+        for method in (cls.from_cc2,
+                       cls.from_cc3,
+                       cls.from_cc_name,
+                       cls.from_us_state,
+                       cls.from_city_eu,
+                       cls.from_city_us,
+                       cls.from_city_world,
+                       cls.from_region,
+                       cls.from_fips,
+                       cls.from_hasc):
+            if sum(map(bool, method(values))) >= len(values) / 2:
+                return method
+        return None
+
 
 @wait_until_loaded
 def latlon2region(latlon, admin=0):
