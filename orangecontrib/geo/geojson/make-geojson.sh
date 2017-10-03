@@ -107,6 +107,7 @@ python3 -c "
 import json
 from math import isnan
 from itertools import groupby
+from collections import OrderedDict
 
 CC = {}
 for line in open('iso3166a2a3.txt'):
@@ -133,7 +134,11 @@ for feature in geo['features']:
 #     json.dump(out, f)
 key = lambda feature: feature['properties']['adm0_a3']
 for cc, features in groupby(sorted(out['features'], key=key), key):
-    features = list(features)
+    features = [OrderedDict([
+                    ('type', f['type']),
+                    ('properties', f['properties']),
+                    ('geometry', f['geometry']),
+                ]) for f in features]
     print(cc, len(features))
     if cc == 'SVN':
         from pprint import pprint
