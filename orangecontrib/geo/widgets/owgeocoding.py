@@ -5,11 +5,11 @@ import pandas as pd
 from collections import OrderedDict
 
 from AnyQt.QtCore import Qt
-from AnyQt.QtWidgets import QComboBox
+from AnyQt.QtWidgets import QComboBox, QItemEditorFactory, QLineEdit, QCompleter
 
 from Orange.data import Table, Domain, StringVariable, DiscreteVariable, ContinuousVariable
 from Orange.widgets import gui, widget, settings
-from Orange.widgets.utils.itemmodels import DomainModel
+from Orange.widgets.utils.itemmodels import DomainModel, PyTableModel
 
 from orangecontrib.geo.utils import find_lat_lon
 from orangecontrib.geo.mapper import latlon2region, ToLatLon
@@ -41,7 +41,6 @@ class OWGeocoding(widget.OWWidget):
 
     settingsHandler = settings.DomainContextHandler()
 
-    want_main_area = False
     resizing_enabled = False
 
     ID_TYPE = OrderedDict((
@@ -68,6 +67,8 @@ class OWGeocoding(widget.OWWidget):
     admin = settings.ContextSetting(0)
     append_features = settings.Setting(True)
 
+    replacements = settings.Setting([], schema_only=True)
+
     class Error(widget.OWWidget.Error):
         aggregation_discrete = widget.Msg("Only certain types of aggregation defined on categorical attributes: {}")
 
@@ -80,8 +81,12 @@ class OWGeocoding(widget.OWWidget):
         self.domainmodels = []
 
         top = self.controlArea
-        modes = gui.radioButtons(
-            top, self, 'is_decoding', callback=lambda: self.commit())
+
+        def _radioChanged():
+            self.mainArea.setVisible(self.is_decoding == 0)
+            self.commit()
+
+        modes = gui.radioButtons(top, self, 'is_decoding', callback=_radioChanged)
 
         gui.appendRadioButton(
             modes, '&Encode region names into geographical coordinates:', insertInto=top)
@@ -150,6 +155,37 @@ class OWGeocoding(widget.OWWidget):
 
         gui.auto_commit(self.controlArea, self, 'autocommit', '&Apply')
 
+        model = self.replacementsModel = PyTableModel(self.replacements, parent=self, editable=[False, True])
+        view = gui.TableView(self,
+                             sortingEnabled=False,
+                             selectionMode=gui.TableView.NoSelection,
+                             editTriggers=gui.TableView.AllEditTriggers)
+        view.horizontalHeader().setSectionResizeMode(0)
+        view.verticalHeader().setSectionResizeMode(0)
+        view.setModel(model)
+
+        owwidget = self
+
+        class EditorFactory(QItemEditorFactory):
+            def createEditor(self, p_int, parent):
+                nonlocal owwidget
+                edit = QLineEdit(parent)
+                wordlist = [''] + ToLatLon.valid_values(owwidget.ID_TYPE[owwidget.str_type])
+                edit.setCompleter(
+                    QCompleter(wordlist, edit,
+                               caseSensitivity=Qt.CaseInsensitive,
+                               filterMode=Qt.MatchContains))
+                return edit
+
+        self.factory = EditorFactory()
+        view.itemDelegate().setItemEditorFactory(self.factory)
+        model.setHorizontalHeaderLabels(['Unmatched Identifier', 'Custom Replacement'])
+        box = gui.vBox(self.mainArea)
+        self.info_str = ' /'
+        gui.label(box, self, 'Unmatched identifiers: %(info_str)s')
+        box.layout().addWidget(view)
+        self.mainArea.setVisible(self.is_decoding == 0)
+
     def commit(self):
         output = None
         if self.data is not None and len(self.data):
@@ -176,9 +212,27 @@ class OWGeocoding(widget.OWWidget):
             return None
         values = self._get_data_values()
         log.debug('Geocoding %d regions into coordinates', len(values))
-        with self.progressBar(2) as progress:
+        with self.progressBar(4) as progress:
             progress.advance()
-            latlon = pd.DataFrame(self.ID_TYPE[self.str_type](values))
+            mappings = self.ID_TYPE[self.str_type](values)
+
+            progress.advance()
+            invalid_idx = [i for i, value in enumerate(mappings) if not value]
+            unmatched = values[invalid_idx].drop_duplicates().dropna().sort_values()
+            self.info_str = '{} / {}'.format(len(unmatched), values.nunique())
+
+            replacements = {k: v
+                            for k, v in self.replacementsModel.tolist()
+                            if v}
+            self.replacements = ([[name, '']
+                                  for name in unmatched
+                                  if name not in replacements] +
+                                 [[name, value]
+                                  for name, value in replacements.items()])
+            self.replacementsModel.wrap(self.replacements)
+
+            progress.advance()
+            latlon = pd.DataFrame(mappings)
         return self._to_addendum(latlon, ['latitude', 'longitude'])
 
     def _get_data_values(self):
@@ -188,7 +242,14 @@ class OWGeocoding(widget.OWWidget):
         # no comment
         if self.data.domain[self.str_attr].is_discrete:
             values = np.array(self.data.domain[self.str_attr].values)[values.astype(np.int16)].astype(str)
-        return pd.Series(values)
+        values = pd.Series(values)
+
+        # Apply replacements from the replacements table
+        if len(self.replacementsModel):
+            values = values.replace({k: v
+                                     for k, v in self.replacementsModel.tolist()
+                                     if v})
+        return values
 
     def _to_addendum(self, df, keep):
         if not df.shape[1]:
@@ -219,6 +280,7 @@ class OWGeocoding(widget.OWWidget):
         self.lon_attr = lon.name if lon else None
 
         self.openContext(data)
+        self.mainArea.setVisible(self.is_decoding == 0)
         self.commit()
 
 

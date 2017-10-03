@@ -319,3 +319,9 @@ WORLD_CITIES = _WORLD_CITIES.copy()
 WORLD_CITIES.update(US=list(chain.from_iterable(_US_CITIES.values())))
 WORLD_CITIES.update(_EUROPE_CITIES)
 WORLD_CITIES = _regexify(_invert(WORLD_CITIES))
+
+EUROPE_CITIES_LIST = sorted(chain.from_iterable(_EUROPE_CITIES.values()))
+US_CITIES_LIST = sorted(chain.from_iterable(_US_CITIES.values()))
+WORLD_CITIES_LIST = sorted(set(chain(chain.from_iterable(_WORLD_CITIES.values()),
+                                     EUROPE_CITIES_LIST,
+                                     US_CITIES_LIST)))

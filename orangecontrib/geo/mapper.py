@@ -16,7 +16,9 @@ import shapely.speedups
 from shapely.geometry import Point, shape as Shape, Polygon
 
 from orangecontrib.geo.cc_cities import \
-    CC_NAME_TO_CC_NAME, US_STATE_TO_US_STATE, EUROPE_CITIES, US_CITIES, WORLD_CITIES
+    CC_NAME_TO_CC_NAME, US_STATE_TO_US_STATE, EUROPE_CITIES, US_CITIES, \
+    WORLD_CITIES, EUROPE_CITIES_LIST, US_CITIES_LIST, WORLD_CITIES_LIST
+
 
 
 log = logging.getLogger(__name__)
@@ -229,6 +231,29 @@ class ToLatLon:
     def from_city_world(cls, values):
         assert isinstance(values, pd.Series)
         return cls.from_cc2(values.replace(regex=WORLD_CITIES))
+
+    @classmethod
+    @lru_cache(1)
+    @wait_until_loaded
+    def valid_values(cls, method):
+        """ Return a sorted list of valid values for method of ToLatLon """
+        assert method.__name__.startswith('from_')
+        lookup_args = {
+            ToLatLon.from_region: (ID_REGIONS, 'name'),
+            ToLatLon.from_cc2: (CC_SHAPES, 'iso_a2'),
+            ToLatLon.from_cc3: (CC_SHAPES, 'iso_a3'),
+            ToLatLon.from_cc_name: (CC_SHAPES, 'name'),
+            ToLatLon.from_fips: (ID_REGIONS, 'fips'),
+            ToLatLon.from_hasc: (ID_REGIONS, 'hasc'),
+            ToLatLon.from_us_state: (US_STATES, 'name'),
+            ToLatLon.from_us_state: (US_STATES, 'name'),
+            ToLatLon.from_city_eu: (EUROPE_CITIES_LIST,),
+            ToLatLon.from_city_us: (US_CITIES_LIST,),
+            ToLatLon.from_city_world: (WORLD_CITIES_LIST,),
+        }[method]
+        if len(lookup_args) == 1:
+            return lookup_args[0]
+        return sorted(filter(None, ToLatLon._lookup(*lookup_args).keys()))
 
     @classmethod
     def detect_input(cls, values, sample_size=200):
