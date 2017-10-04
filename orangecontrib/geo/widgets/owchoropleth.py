@@ -293,7 +293,14 @@ class OWChoropleth(widget.OWWidget):
             # is set to string attr in File and dataset reloaded.
             # Our "dataflow" arch can suck my balls
             return
-        discrete_values = list(attr.values) if attr.is_discrete and not self.agg_func.startswith('Count') else []
+
+        # Only show discrete values that are contained in aggregated results
+        discrete_values = []
+        if attr.is_discrete and not self.agg_func.startswith('Count'):
+            subset = sorted(result.drop_duplicates().dropna().astype(int))
+            discrete_values = np.array(attr.values)[subset].tolist()
+            discrete_colors = np.array(attr.colors)[subset].tolist()
+            result.replace(subset, list(range(len(subset))), inplace=True)
 
         self.result_min_nonpositive = attr.is_continuous and result.min() <= 0
         force_quantization = self.color_quantization.startswith('log') and self.result_min_nonpositive
@@ -305,12 +312,12 @@ class OWChoropleth(widget.OWWidget):
             'results',
             dict(discrete=discrete_values,
                  colors=[color_to_hex(i)
-                         for i in (attr.colors if discrete_values else
+                         for i in (discrete_colors if discrete_values else
                                    ((0, 0, 255), (255, 255, 0)) if attr.is_discrete else
                                    attr.colors[:-1])],  # ???
                  regions=list(adm0),
                  attr=attr.name,
-                 have_nonpositive=self.result_min_nonpositive or discrete_values,
+                 have_nonpositive=self.result_min_nonpositive or bool(discrete_values),
                  values=result.to_dict(),
                  repr_vals=result.map(attr.repr_val).to_dict() if repr_time else {},
                  minmax=([result.min(), result.max()] if attr.is_discrete and not discrete_values else
