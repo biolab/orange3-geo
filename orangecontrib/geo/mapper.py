@@ -169,13 +169,12 @@ class ToLatLon:
                 if key in p}
 
     @classmethod
-    def _get(cls, lookup, values, to_replace=None):
-        if to_replace:
-            assert isinstance(values, pd.Series)
-            values = values.replace(regex=to_replace)
-
-        NUL = {}
-        return [lookup.get(i, NUL) for i in values]
+    def _get(cls, lookup, values, to_replace={}, _NUL={}):
+        mapping = values.drop_duplicates()
+        mapping.index = mapping.values.copy()
+        mapping.replace(to_replace, inplace=True)
+        mapping = mapping.apply(lookup.get, args=(_NUL,))
+        return values.map(mapping).tolist()
 
     @classmethod
     @wait_until_loaded
