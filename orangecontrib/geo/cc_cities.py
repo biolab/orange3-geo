@@ -39,6 +39,37 @@ _CC_NAME_TO_CC_NAME = {
 }
 
 
+_REGION_NAME_TO_REGION_NAME = {
+    # Municipalities in Slovenia
+    'Apace': ['Apače'],
+    'Braslovce': ['Braslovče'],
+    'Crnomelj': ['Črnomelj'],
+    'Crnomelj': ['Črnomelj'],
+    'Divaca': ['Divača'],
+    'Hoce-Slivnica': ['Hoče-Slivnica'],
+    'Ivancna Gorica': ['Ivančna Gorica'],
+    'Kidricevo': ['Kidričevo'],
+    'Kocevje': ['Kočevje'],
+    'Luce': ['Luče'],
+    'Mirna Pec': ['Mirna Peč'],
+    'Moravce': ['Moravče'],
+    'Nova Goriška': ['Nova Gorica'],
+    'Novo Mesto': ['Novo mesto'],
+    'Podcetrtek': ['Podčetrtek'],
+    'Poljcane': ['Poljčane'],
+    'Race-Fram': ['Rače-Fram'],
+    'Radece': ['Radeče'],
+    'Ravne na Koroškem': ['Ravne'],
+    'Semic': ['Semič'],
+    'Šmartno in Litiji': ['Šmartno pri Litiji'],
+    'Solcava': ['Solčava'],
+    'Sveti Andraž v Slovenskih Goricah': ['Sveti Andraž v Slovenskih goricah', 'Sveti Andraž v Slov. goricah', 'Sveti Andraž v Slov.goricah', 'Sveti Andraž v Sloven. goricah'],
+    'Zasavska': ['Zagorje ob Savi'],
+    'Zavrc': ['Zavrč'],
+    'Zrece': ['Zreče'],
+}
+
+
 _US_STATE_TO_US_STATE = {
     'NC': ['North Carolina', 'N. Carolina'],
     'ND': ['North Dakota', 'N. Dakota'],
@@ -310,6 +341,7 @@ def _regexify(mapping):
 
 
 CC_NAME_TO_CC_NAME = _regexify(_invert(_CC_NAME_TO_CC_NAME))
+REGION_NAME_TO_REGION_NAME = _regexify(_invert(_REGION_NAME_TO_REGION_NAME))
 US_STATE_TO_US_STATE = _regexify(_invert(_US_STATE_TO_US_STATE))
 
 EUROPE_CITIES = _regexify(_invert(_EUROPE_CITIES))

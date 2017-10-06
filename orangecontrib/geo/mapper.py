@@ -16,8 +16,9 @@ import shapely.speedups
 from shapely.geometry import Point, shape as Shape, Polygon
 
 from orangecontrib.geo.cc_cities import \
-    CC_NAME_TO_CC_NAME, US_STATE_TO_US_STATE, EUROPE_CITIES, US_CITIES, \
-    WORLD_CITIES, EUROPE_CITIES_LIST, US_CITIES_LIST, WORLD_CITIES_LIST
+    CC_NAME_TO_CC_NAME, REGION_NAME_TO_REGION_NAME, US_STATE_TO_US_STATE,\
+    EUROPE_CITIES, US_CITIES, WORLD_CITIES,\
+    EUROPE_CITIES_LIST, US_CITIES_LIST, WORLD_CITIES_LIST
 
 
 
@@ -194,7 +195,7 @@ class ToLatLon:
     @classmethod
     @wait_until_loaded
     def from_region(cls, values):
-        return cls._get(ToLatLon._lookup(ID_REGIONS, 'name'), values)
+        return cls._get(ToLatLon._lookup(ID_REGIONS, 'name'), values, REGION_NAME_TO_REGION_NAME)
 
     @classmethod
     @wait_until_loaded
