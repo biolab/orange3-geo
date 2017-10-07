@@ -16,7 +16,10 @@ import shapely.speedups
 from shapely.geometry import Point, shape as Shape, Polygon
 
 from orangecontrib.geo.cc_cities import \
-    CC_NAME_TO_CC_NAME, US_STATE_TO_US_STATE, EUROPE_CITIES, US_CITIES, WORLD_CITIES
+    CC_NAME_TO_CC_NAME, REGION_NAME_TO_REGION_NAME, US_STATE_TO_US_STATE,\
+    EUROPE_CITIES, US_CITIES, WORLD_CITIES,\
+    EUROPE_CITIES_LIST, US_CITIES_LIST, WORLD_CITIES_LIST
+
 
 
 log = logging.getLogger(__name__)
@@ -166,13 +169,12 @@ class ToLatLon:
                 if key in p}
 
     @classmethod
-    def _get(cls, lookup, values, to_replace=None):
-        if to_replace:
-            assert isinstance(values, pd.Series)
-            values = values.replace(regex=to_replace)
-
-        NUL = {}
-        return [lookup.get(i, NUL) for i in values]
+    def _get(cls, lookup, values, to_replace={}, _NUL={}):
+        mapping = values.drop_duplicates()
+        mapping.index = mapping.values.copy()
+        mapping.replace(to_replace, inplace=True)
+        mapping = mapping.apply(lookup.get, args=(_NUL,))
+        return values.map(mapping).tolist()
 
     @classmethod
     @wait_until_loaded
@@ -192,7 +194,7 @@ class ToLatLon:
     @classmethod
     @wait_until_loaded
     def from_region(cls, values):
-        return cls._get(ToLatLon._lookup(ID_REGIONS, 'name'), values)
+        return cls._get(ToLatLon._lookup(ID_REGIONS, 'name'), values, REGION_NAME_TO_REGION_NAME)
 
     @classmethod
     @wait_until_loaded
@@ -231,23 +233,51 @@ class ToLatLon:
         return cls.from_cc2(values.replace(regex=WORLD_CITIES))
 
     @classmethod
-    def detect_input(cls, values):
+    @lru_cache(1)
+    @wait_until_loaded
+    def valid_values(cls, method):
+        """ Return a sorted list of valid values for method of ToLatLon """
+        assert method.__name__.startswith('from_')
+        lookup_args = {
+            ToLatLon.from_region: (ID_REGIONS, 'name'),
+            ToLatLon.from_cc2: (CC_SHAPES, 'iso_a2'),
+            ToLatLon.from_cc3: (CC_SHAPES, 'iso_a3'),
+            ToLatLon.from_cc_name: (CC_SHAPES, 'name'),
+            ToLatLon.from_fips: (ID_REGIONS, 'fips'),
+            ToLatLon.from_hasc: (ID_REGIONS, 'hasc'),
+            ToLatLon.from_us_state: (US_STATES, 'name'),
+            ToLatLon.from_us_state: (US_STATES, 'name'),
+            ToLatLon.from_city_eu: (EUROPE_CITIES_LIST,),
+            ToLatLon.from_city_us: (US_CITIES_LIST,),
+            ToLatLon.from_city_world: (WORLD_CITIES_LIST,),
+        }[method]
+        if len(lookup_args) == 1:
+            return lookup_args[0]
+        return sorted(filter(None, ToLatLon._lookup(*lookup_args).keys()))
+
+    @classmethod
+    def detect_input(cls, values, sample_size=200):
         """
         Return first "from_" method that in more than 50% matches values,
         or None.
         """
         assert isinstance(values, pd.Series)
         values = values.drop_duplicates().dropna()
-        for method in (cls.from_cc2,
-                       cls.from_cc3,
-                       cls.from_cc_name,
-                       cls.from_us_state,
-                       cls.from_city_eu,
-                       cls.from_city_us,
-                       cls.from_city_world,
-                       cls.from_region,
-                       cls.from_fips,
-                       cls.from_hasc):
+        if len(values) > sample_size:
+            values = values.sample(sample_size)
+        strlen = values.str.len().dropna().unique()
+        for method, *cond in ((cls.from_cc2, len(strlen) == 1 and strlen[0] == 2),
+                              (cls.from_cc3, len(strlen) == 1 and strlen[0] == 3),
+                              (cls.from_cc_name,),
+                              (cls.from_us_state,),
+                              (cls.from_city_eu,),
+                              (cls.from_city_us,),
+                              (cls.from_city_world,),
+                              (cls.from_region,),
+                              (cls.from_fips,),
+                              (cls.from_hasc, np.in1d(strlen, [2, 5, 8]).all())):
+            if cond and not cond[0]:
+                continue
             if sum(map(bool, method(values))) >= len(values) / 2:
                 return method
         return None
