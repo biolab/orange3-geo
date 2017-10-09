@@ -1,0 +1,3 @@
+{"type":"FeatureCollection","features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[-109.21202551999993,10.302679755000014],[-109.21035722599991,10.28872304900004],[-109.2185766269999,10.281561591000084],[-109.23424231699988,10.30792877800009],[-109.22594153599991,10.31102122600008],[-109.21202551999993,10.302679755000014]]]},"properties":{"name":"Clipperton Island","type":null,"adm0_a3":"CLP","hasc":"-99.X02~","_id":"CLP+00?","iso_a2":null,"fips":null,"admin":"Clipperton Island","longitude":-109.222,"latitude":10.2973}}
+]}

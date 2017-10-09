@@ -1,0 +1,3 @@
+{"type":"FeatureCollection","features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[12.45313691700008,41.902751941000105],[12.45303120800014,41.90391473800014],[12.453982588000144,41.903861884],[12.45313691700008,41.902751941000105]]]},"properties":{"name":"Vatican","type":null,"adm0_a3":"VAT","hasc":"VA.X01~","_id":"VAT+00?","iso_a2":"VA","fips":null,"admin":"Vatican","longitude":12.4534,"latitude":41.9034}}
+]}

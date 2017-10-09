@@ -1,0 +1,3 @@
+{"type":"FeatureCollection","features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[123.59701582100013,-12.428317966999899],[123.59774824300007,-12.438571872999844],[123.57561282600017,-12.436781507999939],[123.57504316500001,-12.426608981999905],[123.59701582100013,-12.428317966999899]]]},"properties":{"name":"Ashmore and Cartier Islands","type":null,"adm0_a3":"ATC","hasc":"AU.AS","_id":"ATC+00?","iso_a2":"AU","fips":null,"admin":"Ashmore and Cartier Islands","longitude":123.586,"latitude":-12.4325}}
+]}
