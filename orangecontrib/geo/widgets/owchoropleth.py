@@ -225,7 +225,6 @@ class OWChoropleth(widget.OWWidget):
         self.map.set_opacity(self.opacity)
 
     def __del__(self):
-        self.progressBarFinished(None)
         self.map = None
 
     def commit(self):
