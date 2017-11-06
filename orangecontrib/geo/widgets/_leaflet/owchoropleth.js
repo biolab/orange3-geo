@@ -270,9 +270,11 @@ function replot() {
         legend.addClass('legend-horiz');
         legend.removeClass('legend');
         legend[0].innerHTML = L.Util.template(
-            '<div class="labels"><div class="min">{min}</div><div class="max">{max}</div></div><ul>{colors}</ul>', {
-                min: results.minmax[0],
-                max: results.minmax[1],
+            '<div class="labels"><div title="{min_full}" class="min">{min}</div><div title="{max_full}" class="max">{max}</div></div><ul>{colors}</ul>', {
+                min: parseFloat(results.minmax[0]).toFixed(3),
+                max: parseFloat(results.minmax[1]).toFixed(3),
+                min_full: results.minmax[0],
+                max_full: results.minmax[1],
                 colors: colors.map(function (color) {
                     return '<li style="background-color: ' + color + '"></li>';
                 }).join('')}
