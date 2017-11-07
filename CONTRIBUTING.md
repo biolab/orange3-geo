@@ -16,7 +16,7 @@ Built JSONs can be found in _json_ branch. You can merge the files into your
 current development branch with:
 
     git checkout topic-branch
-    git checkout json orangecontrib/geo/geojson/*.json
+    git checkout origin/json orangecontrib/geo/geojson/*.json
     git reset HEAD orangecontrib/geo/geojson/*.json
 
 When re-building the JSON files due to upstream region shape changes, the 
@@ -41,7 +41,7 @@ works for me:
 
     git checkout master
     git checkout -b build
-    git checkout json orangecontrib/geo/geojson/*.json
+    git checkout origin/json orangecontrib/geo/geojson/*.json
     git reset HEAD .
 
     python setup.py sdist
