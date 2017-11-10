@@ -9,7 +9,7 @@ var map = L.map('map', {
 map.attributionControl.setPrefix('Orange Data Mining | Leaflet | Natural Earth');
 map.fitWorld();
 
-L.easyButton('<img src="target.png" class="custom-button">', function () {
+L.easyButton('<img src="target.png" title="Fit to area bounds" class="custom-button">', function () {
     pybridge.fit_to_bounds();
 }).addTo(map);
 

@@ -58,7 +58,7 @@ class OWGeocoding(widget.OWWidget):
         ('US state (name or abbr.)', ToLatLon.from_us_state),
     ))
 
-    autocommit = settings.Setting(False)
+    autocommit = settings.Setting(True)
     is_decoding = settings.ContextSetting(1)
     str_attr = settings.ContextSetting('')
     str_type = settings.ContextSetting(next(iter(ID_TYPE)))

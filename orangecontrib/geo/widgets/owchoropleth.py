@@ -87,7 +87,7 @@ class LeafletChoropleth(WebviewWidget):
 
 
 class OWChoropleth(widget.OWWidget):
-    name = 'Choropleth'
+    name = 'Choropleth Map'
     description = 'A thematic map in which areas are shaded in proportion ' \
                   'to the measurement of the statistical variable being displayed.'
     icon = "icons/Choropleth.svg"
