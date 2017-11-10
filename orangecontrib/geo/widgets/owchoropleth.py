@@ -5,7 +5,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from AnyQt.QtCore import Qt, QUrl, pyqtSignal, pyqtSlot, QT_VERSION_STR, QObject
+from AnyQt.QtCore import (
+    Qt, QUrl, pyqtSignal, pyqtSlot, QT_VERSION_STR,
+    QObject, QTimer,
+)
 
 from Orange.misc.cache import memoize_method
 from Orange.util import color_to_hex
@@ -151,6 +154,7 @@ class OWChoropleth(widget.OWWidget):
         self.data = None
         self.latlon = None
         self.result_min_nonpositive = False
+        self._should_fit_bounds = False
 
         def selectionChanged(selection):
             self._indices = self.ids.isin(selection).nonzero()[0]
@@ -266,7 +270,17 @@ class OWChoropleth(widget.OWWidget):
         if self.selection:
             self.map.preset_region_selection(self.selection)
         self.aggregate()
-        self.map.fit_to_bounds()
+
+        if self.isVisible():
+            self.map.fit_to_bounds()
+        else:
+            self._should_fit_bounds = True
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._should_fit_bounds:
+            QTimer.singleShot(500, self.map.fit_to_bounds)
+        self._should_fit_bounds = False
 
     def aggregate(self):
         if self.latlon is None or self.attr not in self.data.domain:
