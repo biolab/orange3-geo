@@ -68,7 +68,7 @@ class LeafletChoropleth(WebviewWidget):
             });''' % (north, west, south, east, maxzoom))
 
     def set_opacity(self, opacity):
-        self.evalJS('''set_opacity(%f);''' % (opacity / 100))
+        self.evalJS('''set_opacity(%f);''' % (opacity / 100 / 2))
 
     def set_quantization(self, quantization):
         self.evalJS('''set_quantization("%s");''' % (quantization[0].lower()))
@@ -270,6 +270,8 @@ class OWChoropleth(widget.OWWidget):
         if self.selection:
             self.map.preset_region_selection(self.selection)
         self.aggregate()
+
+        self.map.set_opacity(self.opacity)
 
         if self.isVisible():
             self.map.fit_to_bounds()
