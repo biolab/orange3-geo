@@ -216,7 +216,7 @@ function replot() {
         return false;
     });
 
-    if (!window.results || !results.values)
+    if (!window.results || !results.values || !Object.keys(results.values).length)
         return;
 
     console.log('Replotting regions:', results.regions);
