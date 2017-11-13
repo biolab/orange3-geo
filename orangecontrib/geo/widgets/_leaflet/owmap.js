@@ -173,6 +173,7 @@ L.ourMarker = function (latlng, options) {
 };
 
 function add_markers(latlon_data) {
+    latlon_data = latlon_data || [];
     console.info('adding map markers: ' + latlon_data.length);
 
     clear_markers_js();

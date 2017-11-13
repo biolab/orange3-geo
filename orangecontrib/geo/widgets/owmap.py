@@ -85,6 +85,8 @@ class LeafletMap(WebviewWidget):
         self._subset_ids = np.array([])
         self.is_js_path = None
 
+        self._should_fit_bounds = False
+
     def __del__(self):
         os.remove(self._overlay_image_path)
         self._image_token = np.nan
@@ -93,6 +95,7 @@ class LeafletMap(WebviewWidget):
         self.data = data
         self._image_token = np.nan  # Stop drawing previous image
         self._owwidget.progressBarFinished(None)
+        self._owwidget.Warning.all_nan_slice.clear()
 
         if (data is None or not len(data) or
                 lat_attr not in data.domain or
@@ -122,19 +125,37 @@ class LeafletMap(WebviewWidget):
 
         self._recompute_jittering_offsets()
 
+        # Lat and/or Long is all-NaN. Clear the image and warn.
+        if np.isnan(self._latlon_data).all(axis=0).any():
+            self._owwidget.Warning.all_nan_slice()
+            self.redraw_markers_overlay_image(new_image=True)
+            return
+
         if fit_bounds:
-            QTimer.singleShot(1, self.fit_to_bounds)
+            if self.isVisible():
+                QTimer.singleShot(1, self.fit_to_bounds)
+            else:
+                self._should_fit_bounds = True
         else:
             self.redraw_markers_overlay_image(new_image=True)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._should_fit_bounds:
+            QTimer.singleShot(500, self.fit_to_bounds)
+            self._should_fit_bounds = False
 
     def fit_to_bounds(self, fly=True):
         if self.data is None:
             return
         lat_data, lon_data = self._latlon_data.T
-        north, south = np.nanmax(lat_data), np.nanmin(lat_data)
-        east, west = np.nanmin(lon_data), np.nanmax(lon_data)
-        script = ('map.%sBounds([[%f, %f], [%f, %f]], {padding: [0,0], minZoom: 2, maxZoom: 13})' %
-                  ('flyTo' if fly else 'fit', south, west, north, east))
+        if np.isnan(lat_data).all() or np.isnan(lon_data).all():
+            script = 'map.setView([0, 0], 0)'
+        else:
+            north, south = np.nanmax(lat_data), np.nanmin(lat_data)
+            east, west = np.nanmin(lon_data), np.nanmax(lon_data)
+            script = ('map.%sBounds([[%f, %f], [%f, %f]], {padding: [0,0], minZoom: 2, maxZoom: 13})' %
+                      ('flyTo' if fly else 'fit', south, west, north, east))
         self.evalJS(script)
         # Sometimes on first data, it doesn't zoom in enough. So let do it
         # once more for good measure!
@@ -605,6 +626,9 @@ class OWMap(widget.OWWidget):
     class Error(widget.OWWidget.Error):
         model_error = widget.Msg("Error predicting: {}")
         learner_error = widget.Msg("Error modelling: {}")
+
+    class Warning(widget.OWWidget.Warning):
+        all_nan_slice = widget.Msg('Latitude and/or longitude has no defined values (is all-NaN)')
 
     UserAdviceMessages = [
         widget.Message(

@@ -282,7 +282,7 @@ class OWChoropleth(widget.OWWidget):
         super().showEvent(event)
         if self._should_fit_bounds:
             QTimer.singleShot(500, self.map.fit_to_bounds)
-        self._should_fit_bounds = False
+            self._should_fit_bounds = False
 
     def aggregate(self):
         if self.latlon is None or self.attr not in self.data.domain:
