@@ -232,10 +232,13 @@ class OWChoropleth(widget.OWWidget):
         self.map = None
 
     def commit(self):
-        self.send('Selected Data',
-                  self.data[self._indices] if self.data is not None and self.selection else None)
-        self.send(ANNOTATED_DATA_SIGNAL_NAME,
-                  create_annotated_table(self.data, self._indices))
+        if self.data is not None and self.selection:
+            selected_data = self.data[self._indices]
+            annotated_data = create_annotated_table(self.data, self._indices)
+        else:
+            selected_data = annotated_data = None
+        self.send('Selected Data', selected_data)
+        self.send(ANNOTATED_DATA_SIGNAL_NAME, annotated_data)
 
     def set_data(self, data):
         self.data = data
