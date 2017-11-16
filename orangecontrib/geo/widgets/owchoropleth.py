@@ -17,6 +17,7 @@ from Orange.widgets import gui, widget, settings
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.utils.webview import WebviewWidget
 from Orange.widgets.utils.annotated_data import create_annotated_table, ANNOTATED_DATA_SIGNAL_NAME
+from Orange.widgets.widget import Input, Output
 
 from orangecontrib.geo.utils import find_lat_lon
 from orangecontrib.geo.mapper import latlon2region, ADMIN2_COUNTRIES, get_bounding_rect
@@ -96,10 +97,12 @@ class OWChoropleth(widget.OWWidget):
     icon = "icons/Choropleth.svg"
     priority = 120
 
-    inputs = [("Data", Table, "set_data", widget.Default)]
+    class Inputs:
+        data = Input("Data", Table, default=True)
 
-    outputs = [("Selected Data", Table, widget.Default),
-               (ANNOTATED_DATA_SIGNAL_NAME, Table)]
+    class Outputs:
+        selected_data = Output("Selected Data", Table, default=True)
+        annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table)
 
     settingsHandler = settings.DomainContextHandler()
 
@@ -232,11 +235,16 @@ class OWChoropleth(widget.OWWidget):
         self.map = None
 
     def commit(self):
-        self.send('Selected Data',
-                  self.data[self._indices] if self.data is not None and self.selection else None)
-        self.send(ANNOTATED_DATA_SIGNAL_NAME,
-                  create_annotated_table(self.data, self._indices))
+        if self.data is not None and self.selection:
+            selected_data = self.data[self._indices]
+            annotated_data = create_annotated_table(self.data, self._indices)
+        else:
+            selected_data = annotated_data = None
 
+        self.Outputs.selected_data.send(selected_data)
+        self.Outputs.annotated_data.send(annotated_data)
+
+    @Inputs.data
     def set_data(self, data):
         self.data = data
 
