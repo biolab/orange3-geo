@@ -1,0 +1,31 @@
+language: python
+sudo: false
+dist: trusty
+python: 3.5
+cache:
+  apt: true
+  pip: true
+  ccache: true
+
+addons:
+  apt:
+    packages:
+      - libgeos-dev
+
+before_install:
+  - set -e  # fail on any error
+  # Merge in the GeoJSON files
+  - git fetch --force origin +json:json
+  - git checkout json -- orangecontrib/geo/geojson/\*.json
+
+install:
+  - pip install PyQt5
+  - pip install Orange3
+  - pip install pandas
+  - pip install .
+
+script:
+  - catchsegv xvfb-run -a -s "-screen 0 1280x1024x24" python setup.py test
+
+after_success:
+  -
