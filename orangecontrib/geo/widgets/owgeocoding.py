@@ -10,7 +10,7 @@ from AnyQt.QtWidgets import QComboBox, QItemEditorFactory, QLineEdit, QCompleter
 from Orange.data import Table, Domain, StringVariable, DiscreteVariable, ContinuousVariable
 from Orange.widgets import gui, widget, settings
 from Orange.widgets.utils.itemmodels import DomainModel, PyTableModel
-
+from Orange.widgets.widget import Input, Output
 from orangecontrib.geo.utils import find_lat_lon
 from orangecontrib.geo.mapper import latlon2region, ToLatLon
 
@@ -35,9 +35,11 @@ class OWGeocoding(widget.OWWidget):
     icon = "icons/Geocoding.svg"
     priority = 40
 
-    inputs = [("Data", Table, "set_data", widget.Default)]
+    class Inputs:
+        data = Input("Data", Table, default=True)
 
-    outputs = [("Coded Data", Table, widget.Default)]
+    class Outputs:
+        coded_data = Output("Coded Data", Table, default=True)
 
     settingsHandler = settings.DomainContextHandler()
 
@@ -192,7 +194,7 @@ class OWGeocoding(widget.OWWidget):
             output = self.decode() if self.is_decoding else self.encode()
             if output is not None:
                 output = self.data.concatenate((self.data, output))
-        self.send('Coded Data', output)
+        self.Outputs.coded_data.send(output)
 
     def decode(self):
         if (self.data is None or not len(self.data) or
@@ -264,6 +266,7 @@ class OWGeocoding(widget.OWWidget):
             np.empty((len(addendum), 0)), None, addendum.values)
         return table
 
+    @Inputs.data
     def set_data(self, data):
         self.data = data
         self.closeContext()
