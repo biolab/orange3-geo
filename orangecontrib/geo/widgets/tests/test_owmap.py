@@ -10,7 +10,7 @@ from Orange.modelling import KNNLearner
 QT_TOO_OLD = QT_VERSION_STR < '5.3'
 
 try:
-    from Orange.widgets.visualize.owmap import OWMap
+    from orangecontrib.geo.widgets.owmap import OWMap
 except RuntimeError:
     assert QT_TOO_OLD
 
@@ -34,8 +34,8 @@ class TestOWMap(WidgetTest):
         self.widget = self.create_widget(OWMap)  # type: OWMap
 
     def test_inputs(self):
-        self.send_signal('Data', self.data)
-        self.send_signal('Learner', KNNLearner())
+        self.send_signal(self.widget.Inputs.data, self.data)
+        self.send_signal(self.widget.Inputs.learner, KNNLearner())
         self.widget.handleNewSignals()
         self.assertEqual(self.widget.map.lat_attr, self.data.domain[0])
 
@@ -59,8 +59,8 @@ class TestOWMap(WidgetTest):
 
     def test_coverage(self):
         # Due to async nature of these calls, these tests just cover
-        self.send_signal('Data', self.data)
-        self.send_signal('Learner', KNNLearner())
+        self.send_signal(self.widget.Inputs.data, self.data)
+        self.send_signal(self.widget.Inputs.learner, KNNLearner())
         self.widget.class_attr = 'cls'
         self.widget.handleNewSignals()
 
