@@ -10,7 +10,7 @@ from Orange.modelling import KNNLearner
 QT_TOO_OLD = QT_VERSION_STR < '5.3'
 
 try:
-    from Orange.widgets.visualize.owmap import OWMap
+    from orangecontrib.geo.widgets.owmap import OWMap
 except RuntimeError:
     assert QT_TOO_OLD
 
