@@ -233,11 +233,15 @@ class LeafletMap(WebviewWidget):
                 self._raw_color_values = values = self.data.get_column_view(variable)[0].astype(float)
                 self._scaled_color_values = scale(values)
                 self._colorgen = ContinuousPaletteGenerator(*variable.colors)
+
+                colors = [color_to_hex(i) for i in variable.colors[:2]]
+                if variable.colors[2]:  # pass through black
+                    colors.insert(1, 'black')
+
                 min = np.nanmin(values)
-                self._legend_colors = (['c',
-                                        self._legend_values(variable, [min, np.nanmax(values)]),
-                                        [color_to_hex(i) for i in variable.colors if i]]
-                                       if not np.isnan(min) else [])
+                self._legend_colors = (
+                    ['c', self._legend_values(variable, [min, np.nanmax(values)]), colors]
+                    if not np.isnan(min) else [])
             elif variable.is_discrete:
                 _values = np.asarray(self.data.domain[attr].values)
                 __values = self.data.get_column_view(variable)[0].astype(np.uint16)
