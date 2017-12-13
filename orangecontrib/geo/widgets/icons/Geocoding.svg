@@ -3,22 +3,22 @@
 <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 viewBox="0 0 48 48" style="enable-background:new 0 0 48 48;" xml:space="preserve">
 <style type="text/css">
-	.st0{fill:none;stroke:#B2B2B2;stroke-width:1.5;stroke-miterlimit:10;}
-	.st1{fill:none;stroke:#333333;stroke-width:2.5;stroke-miterlimit:10;}
+	.st0{fill:none;stroke:#B2B2B2;stroke-width:2;stroke-miterlimit:10;}
+	.st1{fill:none;stroke:#333333;stroke-width:3;stroke-miterlimit:10;}
 </style>
 <g>
 	<g>
-		<g>
-			<circle class="st0" cx="26.8" cy="20.3" r="13.9"/>
-			<path class="st0" d="M26.1,6.4c0,0-14.3,11.7,0,27.7"/>
-			<path class="st0" d="M27.5,6.4c0,0,14.3,11.7,0,27.7"/>
-			<line class="st0" x1="15" y1="13" x2="38.1" y2="13"/>
-			<line class="st0" x1="12.9" y1="20.3" x2="40.7" y2="20.3"/>
-			<line class="st0" x1="15" y1="27.6" x2="38.1" y2="27.6"/>
-		</g>
-		<line class="st0" x1="26.8" y1="6.4" x2="26.8" y2="34.2"/>
+		<circle class="st0" cx="24" cy="24" r="18.1"/>
+		<path class="st0" d="M23.1,5.9c0,0-18.6,15.3,0,36.2"/>
+		<path class="st0" d="M24.9,5.9c0,0,18.6,15.3,0,36.2"/>
+		<line class="st0" x1="8.6" y1="14.4" x2="38.7" y2="14.4"/>
+		<line class="st0" x1="5.9" y1="24" x2="42.1" y2="24"/>
+		<line class="st0" x1="8.6" y1="33.6" x2="38.7" y2="33.6"/>
 	</g>
-	<circle class="st1" cx="20.2" cy="28.5" r="8.2"/>
-	<line class="st1" x1="14.3" y1="34.6" x2="7.5" y2="41.4"/>
+	<line class="st0" x1="24" y1="5.9" x2="24" y2="42.1"/>
+</g>
+<g>
+	<circle class="st1" cx="19.4" cy="29.2" r="8.2"/>
+	<line class="st1" x1="13.5" y1="35.3" x2="6.7" y2="42.1"/>
 </g>
 </svg>
