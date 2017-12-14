@@ -19,6 +19,7 @@ from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.utils.webview import WebviewWidget
 from Orange.widgets.utils.colorpalette import ColorPaletteGenerator, ContinuousPaletteGenerator
 from Orange.widgets.utils.annotated_data import create_annotated_table, ANNOTATED_DATA_SIGNAL_NAME
+from Orange.widgets.widget import Input, Output
 
 from orangecontrib.geo.utils import find_lat_lon
 
@@ -560,6 +561,7 @@ class LeafletMap(WebviewWidget):
                 self._owwidget.progressBarAdvance(100 / n_iters, None)
             else:
                 self._owwidget.progressBarFinished(None)
+                self._image_token = None
 
         self._owwidget.progressBarFinished(None)
         self._owwidget.progressBarInit(None)
@@ -582,12 +584,14 @@ class OWMap(widget.OWWidget):
     icon = "icons/GeoMap.svg"
     priority = 100
 
-    inputs = [("Data", Table, "set_data", widget.Default),
-              ("Data Subset", Table, "set_subset"),
-              ("Learner", Learner, "set_learner")]
+    class Inputs:
+        data = Input("Data", Table, default=True)
+        data_subset = Input("Data Subset", Table)
+        learner = Input("Learner", Learner)
 
-    outputs = [("Selected Data", Table, widget.Default),
-               (ANNOTATED_DATA_SIGNAL_NAME, Table)]
+    class Outputs:
+        selected_data = Output("Selected Data", Table, default=True)
+        annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table)
 
     replaces = [
         "Orange.widgets.visualize.owmap.OWMap",
@@ -641,7 +645,7 @@ class OWMap(widget.OWWidget):
 
     def __init__(self):
         super().__init__()
-        self.map = map = LeafletMap(self)
+        self.map = map = LeafletMap(self)  # type: LeafletMap
         self.mainArea.layout().addWidget(map)
         self.selection = None
         self.data = None
@@ -780,10 +784,10 @@ class OWMap(widget.OWWidget):
         self.map = None
 
     def commit(self):
-        self.send('Selected Data', self.selection)
-        self.send(ANNOTATED_DATA_SIGNAL_NAME,
-                  create_annotated_table(self.data, self._indices))
+        self.Outputs.selected_data.send(self.selection)
+        self.Outputs.annotated_data.send(create_annotated_table(self.data, self._indices))
 
+    @Inputs.data
     def set_data(self, data):
         self.data = data
 
@@ -829,6 +833,7 @@ class OWMap(widget.OWWidget):
         self.map.set_marker_shape(self.shape_attr, update=False)
         self.map.set_marker_size(self.size_attr, update=True)
 
+    @Inputs.data_subset
     def set_subset(self, subset):
         self.map.set_subset_ids(subset.ids if subset is not None else np.array([]))
 
@@ -836,6 +841,7 @@ class OWMap(widget.OWWidget):
         super().handleNewSignals()
         self.train_model()
 
+    @Inputs.learner
     def set_learner(self, learner):
         self.learner = learner
         self.controls.class_attr.setEnabled(learner is not None)
@@ -883,8 +889,7 @@ class OWMap(widget.OWWidget):
 
 def test_main():
     from AnyQt.QtWidgets import QApplication
-    from Orange.regression import KNNRegressionLearner as Learner
-    from Orange.classification import KNNLearner as Learner
+    from Orange.modelling import KNNLearner as Learner
     a = QApplication([])
 
     ow = OWMap()
@@ -893,7 +898,7 @@ def test_main():
     data = Table('philadelphia-crime')
     ow.set_data(data)
 
-    QTimer.singleShot(10, lambda: ow.set_learner(Learner(20)))
+    QTimer.singleShot(10, lambda: ow.set_learner(Learner()))
 
     ow.handleNewSignals()
     a.exec()
