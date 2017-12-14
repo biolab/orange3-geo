@@ -5,6 +5,7 @@ import numpy as np
 from AnyQt.QtCore import QT_VERSION_STR
 from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
 from Orange.widgets.tests.base import WidgetTest
+from Orange.widgets.tests.utils import simulate
 from Orange.modelling import KNNLearner
 
 QT_TOO_OLD = QT_VERSION_STR < '5.3'
@@ -100,3 +101,17 @@ class TestOWMap(WidgetTest):
         self.widget.map.bridge.redraw_markers_overlay_image(1, 2, 3, 4, 5, 6, 7, [1, 2], [3, 4])
 
         self.widget.clear()
+
+    def test_color_pass_black(self):
+        """
+        Do not fail when continuous variable has a color
+        gradient which passes through black.
+        GH-27
+        GH-28
+        """
+        data = Table("iris")
+        colors = data.domain.attributes[0].colors[:2] + (True, )
+        data.domain.attributes[0].colors = colors
+        self.send_signal(self.widget.Inputs.data, data)
+        cb_attr_color = self.widget.controls.color_attr
+        simulate.combobox_activate_item(cb_attr_color, data.domain.attributes[0].name)
