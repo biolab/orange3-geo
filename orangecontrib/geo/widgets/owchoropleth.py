@@ -387,7 +387,7 @@ class OWChoropleth(widget.OWWidget):
         self.map.evalJS('replot();')
 
 
-def test_main():
+def main():
     from AnyQt.QtWidgets import QApplication
     a = QApplication([])
 
@@ -401,4 +401,4 @@ def test_main():
     ow.saveSettings()
 
 if __name__ == "__main__":
-    test_main()
+    main()
