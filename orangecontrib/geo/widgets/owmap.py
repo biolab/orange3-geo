@@ -899,7 +899,7 @@ def main():
     ow = OWMap()
     ow.show()
     ow.raise_()
-    data = Table('philadelphia-crime')
+    data = Table("India_census_district_population")
     ow.set_data(data)
 
     QTimer.singleShot(10, lambda: ow.set_learner(Learner()))

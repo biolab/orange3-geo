@@ -394,7 +394,7 @@ def main():
     ow = OWChoropleth()
     ow.show()
     ow.raise_()
-    data = Table('philadelphia-crime')
+    data = Table("India_census_district_population")
     ow.set_data(data)
 
     a.exec()
