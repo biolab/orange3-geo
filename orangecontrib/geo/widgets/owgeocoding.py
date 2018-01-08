@@ -294,7 +294,7 @@ def main():
     ow = OWGeocoding()
     ow.show()
     ow.raise_()
-    data = Table('philadelphia-crime')
+    data = Table("India_census_district_population")
     print(data[:10])
     ow.set_data(data)
 

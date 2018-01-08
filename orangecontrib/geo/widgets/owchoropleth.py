@@ -387,18 +387,18 @@ class OWChoropleth(widget.OWWidget):
         self.map.evalJS('replot();')
 
 
-def test_main():
+def main():
     from AnyQt.QtWidgets import QApplication
     a = QApplication([])
 
     ow = OWChoropleth()
     ow.show()
     ow.raise_()
-    data = Table('philadelphia-crime')
+    data = Table("India_census_district_population")
     ow.set_data(data)
 
     a.exec()
     ow.saveSettings()
 
 if __name__ == "__main__":
-    test_main()
+    main()

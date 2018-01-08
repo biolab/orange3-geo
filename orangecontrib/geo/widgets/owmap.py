@@ -891,7 +891,7 @@ class OWMap(widget.OWWidget):
         self.label_attr = self.shape_attr = self.size_attr = None
 
 
-def test_main():
+def main():
     from AnyQt.QtWidgets import QApplication
     from Orange.modelling import KNNLearner as Learner
     a = QApplication([])
@@ -899,7 +899,7 @@ def test_main():
     ow = OWMap()
     ow.show()
     ow.raise_()
-    data = Table('philadelphia-crime')
+    data = Table("India_census_district_population")
     ow.set_data(data)
 
     QTimer.singleShot(10, lambda: ow.set_learner(Learner()))
@@ -909,4 +909,4 @@ def test_main():
     ow.saveSettings()
 
 if __name__ == "__main__":
-    test_main()
+    main()
