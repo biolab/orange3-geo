@@ -5,7 +5,7 @@ from tempfile import mkstemp
 
 import numpy as np
 
-from AnyQt.QtCore import Qt, QUrl, pyqtSignal, pyqtSlot, QTimer, QT_VERSION_STR, QObject
+from AnyQt.QtCore import Qt, QUrl, pyqtSignal, pyqtSlot, QTimer, QT_VERSION, QObject
 from AnyQt.QtGui import QImage, QPainter, QPen, QBrush, QColor
 from AnyQt.QtWidgets import qApp
 
@@ -24,7 +24,7 @@ from Orange.widgets.widget import Input, Output
 from orangecontrib.geo.utils import find_lat_lon
 
 
-if QT_VERSION_STR <= '5.3':
+if QT_VERSION <= 0x050300:
     raise RuntimeError('Map widget only works with Qt 5.3+')
 
 

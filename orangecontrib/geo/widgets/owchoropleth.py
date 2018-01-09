@@ -6,7 +6,7 @@ import pandas as pd
 from scipy import stats
 
 from AnyQt.QtCore import (
-    Qt, QUrl, pyqtSignal, pyqtSlot, QT_VERSION_STR,
+    Qt, QUrl, pyqtSignal, pyqtSlot, QT_VERSION,
     QObject, QTimer,
 )
 
@@ -23,7 +23,7 @@ from orangecontrib.geo.utils import find_lat_lon
 from orangecontrib.geo.mapper import latlon2region, ADMIN2_COUNTRIES, get_bounding_rect
 
 
-if QT_VERSION_STR <= '5.3':
+if QT_VERSION <= 0x050300:
     raise RuntimeError('Choropleth widget only works with Qt 5.3+')
 
 

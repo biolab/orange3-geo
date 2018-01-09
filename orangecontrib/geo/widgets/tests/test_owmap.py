@@ -2,13 +2,13 @@ import time
 import unittest
 import numpy as np
 
-from AnyQt.QtCore import QT_VERSION_STR
+from AnyQt.QtCore import QT_VERSION
 from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
 from Orange.widgets.tests.base import WidgetTest
 from Orange.widgets.tests.utils import simulate
 from Orange.modelling import KNNLearner
 
-QT_TOO_OLD = QT_VERSION_STR < '5.3'
+QT_TOO_OLD = QT_VERSION <= 0x050300
 
 try:
     from orangecontrib.geo.widgets.owmap import OWMap
