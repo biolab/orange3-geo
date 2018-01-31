@@ -69,7 +69,7 @@ class LeafletChoropleth(WebviewWidget):
             });''' % (north, west, south, east, maxzoom))
 
     def set_opacity(self, opacity):
-        self.evalJS('''set_opacity(%f);''' % (opacity / 100 / 2))
+        self.evalJS('''set_opacity(%f);''' % (opacity / 100))
 
     def set_quantization(self, quantization):
         self.evalJS('''set_quantization("%s");''' % (quantization[0].lower()))
