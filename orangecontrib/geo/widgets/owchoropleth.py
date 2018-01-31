@@ -323,7 +323,7 @@ class OWChoropleth(widget.OWWidget):
             subset = sorted(result.drop_duplicates().dropna().astype(int))
             discrete_values = np.array(attr.values)[subset].tolist()
             discrete_colors = np.array(attr.colors)[subset].tolist()
-            result.replace(subset, list(range(len(subset))), inplace=True)
+            result = result.replace(dict(zip(subset, range(len(subset)))))
 
         self.result_min_nonpositive = attr.is_continuous and result.min() <= 0
         force_quantization = self.color_quantization.startswith('log') and self.result_min_nonpositive
