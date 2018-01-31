@@ -62,6 +62,8 @@ def wait_until_loaded(func):
         global is_done_loading
         while not is_done_loading:
             time.sleep(.1)
+        if isinstance(is_done_loading, Exception):
+            raise is_done_loading
         return func(*args, **kwargs)
     return wrapper
 
@@ -70,6 +72,7 @@ is_done_loading = False
 
 
 def init():
+    global is_done_loading
     def _admin_cc(filename):
         parts = path.basename(filename).split('.', 1)[0].split('-')
         admin, cc = parts if len(parts) == 2 else (parts[0], None)
@@ -84,9 +87,11 @@ def init():
 
     files = glob(path.join(GEOJSON_DIR, 'admin*.json'))
     if not files:
-        raise RuntimeError('Missing GeoJSON files. '
-                           'In development environments, merge in the "json" '
-                           'branch. See CONTRIBUTING.md')
+        is_done_loading = RuntimeError(
+            'Missing GeoJSON files. '
+            'In development environments, merge in the "json"'
+            'branch. See CONTRIBUTING.md')
+        raise is_done_loading
 
     log.debug('Loading GeoJSON data ...')
     for filename in files:
@@ -153,7 +158,7 @@ def init():
     assert all(len(nearest_points[admin]) == len(shapes[admin])
                for admin in shapes)
 
-    global is_done_loading, SHAPES, CC_SHAPES, KDTREE, ID_REGIONS, US_STATES
+    global SHAPES, CC_SHAPES, KDTREE, ID_REGIONS, US_STATES
     SHAPES, CC_SHAPES, KDTREE, ID_REGIONS, US_STATES = shapes, cc_shapes, kdtree, id_regions, us_states
     is_done_loading = True
     return
