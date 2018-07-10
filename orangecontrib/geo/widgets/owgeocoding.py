@@ -5,7 +5,8 @@ import pandas as pd
 from collections import OrderedDict
 
 from AnyQt.QtCore import Qt
-from AnyQt.QtWidgets import QComboBox, QItemEditorFactory, QLineEdit, QCompleter
+from AnyQt.QtWidgets import QComboBox, QItemEditorFactory, QLineEdit, \
+    QCompleter, QHeaderView
 
 from Orange.data import Table, Domain, StringVariable, DiscreteVariable, ContinuousVariable
 from Orange.widgets import gui, widget, settings
@@ -30,8 +31,7 @@ def available_name(domain, template):
 class OWGeocoding(widget.OWWidget):
     name = 'Geocoding'
     description = 'Encode region names into geographical coordinates, or ' \
-                  'reverse-geocode latitude and longitude pairs into cultural ' \
-                  'regions.'
+                  'reverse-geocode latitude and longitude pairs into regions.'
     icon = "icons/Geocoding.svg"
     priority = 40
 
@@ -61,13 +61,13 @@ class OWGeocoding(widget.OWWidget):
     ))
 
     autocommit = settings.Setting(True)
-    is_decoding = settings.ContextSetting(1)
+    is_decoding = settings.ContextSetting(0)
     str_attr = settings.ContextSetting('')
     str_type = settings.ContextSetting(next(iter(ID_TYPE)))
     lat_attr = settings.ContextSetting('')
     lon_attr = settings.ContextSetting('')
     admin = settings.ContextSetting(0)
-    append_features = settings.Setting(True)
+    append_features = settings.Setting(False)
 
     replacements = settings.Setting([], schema_only=True)
 
@@ -81,11 +81,13 @@ class OWGeocoding(widget.OWWidget):
         super().__init__()
         self.data = None
         self.domainmodels = []
+        self.unmatched = []
 
         top = self.controlArea
 
         def _radioChanged():
-            self.mainArea.setVisible(self.is_decoding == 0)
+            self.mainArea.setVisible(self.is_decoding == 0 and
+                                     len(self.unmatched))
             self.commit()
 
         modes = gui.radioButtons(top, self, 'is_decoding', callback=_radioChanged)
@@ -156,13 +158,16 @@ class OWGeocoding(widget.OWWidget):
                     'economy type, FIPS/HASC codes, region capital etc. as available.')
 
         gui.auto_commit(self.controlArea, self, 'autocommit', '&Apply')
+        gui.rubber(self.controlArea)
 
-        model = self.replacementsModel = PyTableModel(self.replacements, parent=self, editable=[False, True])
+        model = self.replacementsModel = PyTableModel(self.replacements,
+                                                      parent=self,
+                                                      editable=[False, True])
         view = gui.TableView(self,
                              sortingEnabled=False,
                              selectionMode=gui.TableView.NoSelection,
                              editTriggers=gui.TableView.AllEditTriggers)
-        view.horizontalHeader().setSectionResizeMode(0)
+        view.horizontalHeader().setResizeMode(QHeaderView.Stretch)
         view.verticalHeader().setSectionResizeMode(0)
         view.setModel(model)
 
@@ -187,6 +192,7 @@ class OWGeocoding(widget.OWWidget):
         gui.label(box, self, 'Unmatched identifiers: %(info_str)s')
         box.layout().addWidget(view)
         self.mainArea.setVisible(self.is_decoding == 0)
+
 
     def commit(self):
         output = None
@@ -220,14 +226,15 @@ class OWGeocoding(widget.OWWidget):
 
             progress.advance()
             invalid_idx = [i for i, value in enumerate(mappings) if not value]
-            unmatched = values[invalid_idx].drop_duplicates().dropna().sort_values()
-            self.info_str = '{} / {}'.format(len(unmatched), values.nunique())
+            self.unmatched = values[invalid_idx].drop_duplicates().dropna().sort_values()
+            self.info_str = '{} / {}'.format(len(self.unmatched),
+                                             values.nunique())
 
             replacements = {k: v
                             for k, v in self.replacementsModel.tolist()
                             if v}
             self.replacements = ([[name, '']
-                                  for name in unmatched
+                                  for name in self.unmatched
                                   if name not in replacements] +
                                  [[name, value]
                                   for name, value in replacements.items()])
@@ -283,8 +290,8 @@ class OWGeocoding(widget.OWWidget):
         self.lon_attr = lon.name if lon else None
 
         self.openContext(data)
-        self.mainArea.setVisible(self.is_decoding == 0)
         self.commit()
+        self.mainArea.setVisible(self.is_decoding == 0 and len(self.unmatched))
 
 
 def main():
@@ -295,7 +302,7 @@ def main():
     ow.show()
     ow.raise_()
     data = Table("India_census_district_population")
-    print(data[:10])
+    data = data[:10]
     ow.set_data(data)
 
     a.exec()
