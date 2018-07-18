@@ -1,4 +1,5 @@
 import logging
+from itertools import chain
 
 import numpy as np
 import pandas as pd
@@ -26,6 +27,13 @@ def available_name(domain, template):
         name = '{}{}'.format(template, ('_' + str(i)) if i else '')
         if name not in domain:
             return name
+
+def guess_region_attr_name(data):
+    """Return the name of the first variable that could specify a region name"""
+    string_vars = (var for var in data.domain.metas if var.is_string)
+    discrete_vars = (var for var in data.domain.variables if var.is_discrete)
+    for var in chain(string_vars, discrete_vars):
+        return var.name
 
 
 class OWGeocoding(widget.OWWidget):
@@ -98,22 +106,9 @@ class OWGeocoding(widget.OWWidget):
         model = DomainModel(parent=self, valid_types=(StringVariable, DiscreteVariable))
         self.domainmodels.append(model)
 
-        def _region_attr_changed():
-            if self.data is None:
-                return
-
-            # Auto-detect the type of region in the attribute and set its combo
-            values = self._get_data_values()
-            func = ToLatLon.detect_input(values)
-            str_type = next((k for k, v in self.ID_TYPE.items() if v == func), None)
-            if str_type is not None and str_type != self.str_type:
-                self.str_type = str_type
-
-            self.commit()
-
         combo = gui.comboBox(
             box, self, 'str_attr', label='Region identifier:', orientation=Qt.Horizontal,
-            callback=_region_attr_changed, sendSelectedValue=True)
+            callback=self.region_attr_changed, sendSelectedValue=True)
         combo.setModel(model)
         gui.comboBox(
             box, self, 'str_type', label='Identifier type:', orientation=Qt.Horizontal,
@@ -121,7 +116,7 @@ class OWGeocoding(widget.OWWidget):
 
         # Select first mode if any of its combos are changed
         for combo in box.findChildren(QComboBox):
-            combo.currentIndexChanged.connect(
+            combo.activated.connect(
                 lambda: setattr(self, 'is_decoding', 0))
 
         gui.appendRadioButton(
@@ -146,7 +141,7 @@ class OWGeocoding(widget.OWWidget):
 
         # Select second mode if any of its combos are changed
         for combo in box.findChildren(QComboBox):
-            combo.currentIndexChanged.connect(
+            combo.activated.connect(
                 lambda: setattr(self, 'is_decoding', 1))
 
         gui.checkBox(
@@ -193,6 +188,18 @@ class OWGeocoding(widget.OWWidget):
         box.layout().addWidget(view)
         self.mainArea.setVisible(self.is_decoding == 0)
 
+    def region_attr_changed(self):
+        if self.data is None:
+            return
+        if self.str_attr:
+            # Auto-detect the type of region in the attribute and set its combo
+            values = self._get_data_values()
+            func = ToLatLon.detect_input(values)
+            str_type = next((k for k, v in self.ID_TYPE.items() if v == func), None)
+            if str_type is not None and str_type != self.str_type:
+                self.str_type = str_type
+
+        self.commit()
 
     def commit(self):
         output = None
@@ -247,6 +254,7 @@ class OWGeocoding(widget.OWWidget):
     def _get_data_values(self):
         if self.data is None:
             return None
+
         values = self.data.get_column_view(self.str_attr)[0]
         # no comment
         if self.data.domain[self.str_attr].is_discrete:
@@ -279,19 +287,32 @@ class OWGeocoding(widget.OWWidget):
         self.closeContext()
 
         if data is None or not len(data):
+            self.clear()
             self.commit()
             return
 
         for model in self.domainmodels:
             model.set_domain(data.domain)
 
+        attr = self.str_attr = guess_region_attr_name(data)
+        if attr is None:
+            self.is_decoding = 1
+
         lat, lon = find_lat_lon(data)
         self.lat_attr = lat.name if lat else None
         self.lon_attr = lon.name if lon else None
 
         self.openContext(data)
-        self.commit()
+        self.region_attr_changed()
         self.mainArea.setVisible(self.is_decoding == 0 and len(self.unmatched))
+
+    def clear(self):
+        self.data = None
+        for model in self.domainmodels:
+            model.set_domain(None)
+        self.unmatched = []
+        self.str_attr = self.lat_attr = self.lon_attr = None
+        self.mainArea.setVisible(False)
 
 
 def main():
