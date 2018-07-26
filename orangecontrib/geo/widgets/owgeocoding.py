@@ -1,11 +1,13 @@
 import logging
+from itertools import chain
 
 import numpy as np
 import pandas as pd
 from collections import OrderedDict
 
 from AnyQt.QtCore import Qt
-from AnyQt.QtWidgets import QComboBox, QItemEditorFactory, QLineEdit, QCompleter
+from AnyQt.QtWidgets import QComboBox, QItemEditorFactory, QLineEdit, \
+    QCompleter, QHeaderView
 
 from Orange.data import Table, Domain, StringVariable, DiscreteVariable, ContinuousVariable
 from Orange.widgets import gui, widget, settings
@@ -26,12 +28,18 @@ def available_name(domain, template):
         if name not in domain:
             return name
 
+def guess_region_attr_name(data):
+    """Return the name of the first variable that could specify a region name"""
+    string_vars = (var for var in data.domain.metas if var.is_string)
+    discrete_vars = (var for var in data.domain.variables if var.is_discrete)
+    for var in chain(string_vars, discrete_vars):
+        return var.name
+
 
 class OWGeocoding(widget.OWWidget):
     name = 'Geocoding'
     description = 'Encode region names into geographical coordinates, or ' \
-                  'reverse-geocode latitude and longitude pairs into cultural ' \
-                  'regions.'
+                  'reverse-geocode latitude and longitude pairs into regions.'
     icon = "icons/Geocoding.svg"
     priority = 40
 
@@ -61,13 +69,13 @@ class OWGeocoding(widget.OWWidget):
     ))
 
     autocommit = settings.Setting(True)
-    is_decoding = settings.ContextSetting(1)
+    is_decoding = settings.ContextSetting(0)
     str_attr = settings.ContextSetting('')
     str_type = settings.ContextSetting(next(iter(ID_TYPE)))
     lat_attr = settings.ContextSetting('')
     lon_attr = settings.ContextSetting('')
     admin = settings.ContextSetting(0)
-    append_features = settings.Setting(True)
+    append_features = settings.Setting(False)
 
     replacements = settings.Setting([], schema_only=True)
 
@@ -81,11 +89,13 @@ class OWGeocoding(widget.OWWidget):
         super().__init__()
         self.data = None
         self.domainmodels = []
+        self.unmatched = []
 
         top = self.controlArea
 
         def _radioChanged():
-            self.mainArea.setVisible(self.is_decoding == 0)
+            self.mainArea.setVisible(self.is_decoding == 0 and
+                                     len(self.unmatched))
             self.commit()
 
         modes = gui.radioButtons(top, self, 'is_decoding', callback=_radioChanged)
@@ -96,22 +106,9 @@ class OWGeocoding(widget.OWWidget):
         model = DomainModel(parent=self, valid_types=(StringVariable, DiscreteVariable))
         self.domainmodels.append(model)
 
-        def _region_attr_changed():
-            if self.data is None:
-                return
-
-            # Auto-detect the type of region in the attribute and set its combo
-            values = self._get_data_values()
-            func = ToLatLon.detect_input(values)
-            str_type = next((k for k, v in self.ID_TYPE.items() if v == func), None)
-            if str_type is not None and str_type != self.str_type:
-                self.str_type = str_type
-
-            self.commit()
-
         combo = gui.comboBox(
             box, self, 'str_attr', label='Region identifier:', orientation=Qt.Horizontal,
-            callback=_region_attr_changed, sendSelectedValue=True)
+            callback=self.region_attr_changed, sendSelectedValue=True)
         combo.setModel(model)
         gui.comboBox(
             box, self, 'str_type', label='Identifier type:', orientation=Qt.Horizontal,
@@ -119,7 +116,7 @@ class OWGeocoding(widget.OWWidget):
 
         # Select first mode if any of its combos are changed
         for combo in box.findChildren(QComboBox):
-            combo.currentIndexChanged.connect(
+            combo.activated.connect(
                 lambda: setattr(self, 'is_decoding', 0))
 
         gui.appendRadioButton(
@@ -144,7 +141,7 @@ class OWGeocoding(widget.OWWidget):
 
         # Select second mode if any of its combos are changed
         for combo in box.findChildren(QComboBox):
-            combo.currentIndexChanged.connect(
+            combo.activated.connect(
                 lambda: setattr(self, 'is_decoding', 1))
 
         gui.checkBox(
@@ -156,13 +153,16 @@ class OWGeocoding(widget.OWWidget):
                     'economy type, FIPS/HASC codes, region capital etc. as available.')
 
         gui.auto_commit(self.controlArea, self, 'autocommit', '&Apply')
+        gui.rubber(self.controlArea)
 
-        model = self.replacementsModel = PyTableModel(self.replacements, parent=self, editable=[False, True])
+        model = self.replacementsModel = PyTableModel(self.replacements,
+                                                      parent=self,
+                                                      editable=[False, True])
         view = gui.TableView(self,
                              sortingEnabled=False,
                              selectionMode=gui.TableView.NoSelection,
                              editTriggers=gui.TableView.AllEditTriggers)
-        view.horizontalHeader().setSectionResizeMode(0)
+        view.horizontalHeader().setResizeMode(QHeaderView.Stretch)
         view.verticalHeader().setSectionResizeMode(0)
         view.setModel(model)
 
@@ -187,6 +187,19 @@ class OWGeocoding(widget.OWWidget):
         gui.label(box, self, 'Unmatched identifiers: %(info_str)s')
         box.layout().addWidget(view)
         self.mainArea.setVisible(self.is_decoding == 0)
+
+    def region_attr_changed(self):
+        if self.data is None:
+            return
+        if self.str_attr:
+            # Auto-detect the type of region in the attribute and set its combo
+            values = self._get_data_values()
+            func = ToLatLon.detect_input(values)
+            str_type = next((k for k, v in self.ID_TYPE.items() if v == func), None)
+            if str_type is not None and str_type != self.str_type:
+                self.str_type = str_type
+
+        self.commit()
 
     def commit(self):
         output = None
@@ -220,14 +233,15 @@ class OWGeocoding(widget.OWWidget):
 
             progress.advance()
             invalid_idx = [i for i, value in enumerate(mappings) if not value]
-            unmatched = values[invalid_idx].drop_duplicates().dropna().sort_values()
-            self.info_str = '{} / {}'.format(len(unmatched), values.nunique())
+            self.unmatched = values[invalid_idx].drop_duplicates().dropna().sort_values()
+            self.info_str = '{} / {}'.format(len(self.unmatched),
+                                             values.nunique())
 
             replacements = {k: v
                             for k, v in self.replacementsModel.tolist()
                             if v}
             self.replacements = ([[name, '']
-                                  for name in unmatched
+                                  for name in self.unmatched
                                   if name not in replacements] +
                                  [[name, value]
                                   for name, value in replacements.items()])
@@ -240,6 +254,7 @@ class OWGeocoding(widget.OWWidget):
     def _get_data_values(self):
         if self.data is None:
             return None
+
         values = self.data.get_column_view(self.str_attr)[0]
         # no comment
         if self.data.domain[self.str_attr].is_discrete:
@@ -272,19 +287,32 @@ class OWGeocoding(widget.OWWidget):
         self.closeContext()
 
         if data is None or not len(data):
+            self.clear()
             self.commit()
             return
 
         for model in self.domainmodels:
             model.set_domain(data.domain)
 
+        attr = self.str_attr = guess_region_attr_name(data)
+        if attr is None:
+            self.is_decoding = 1
+
         lat, lon = find_lat_lon(data)
         self.lat_attr = lat.name if lat else None
         self.lon_attr = lon.name if lon else None
 
         self.openContext(data)
-        self.mainArea.setVisible(self.is_decoding == 0)
-        self.commit()
+        self.region_attr_changed()
+        self.mainArea.setVisible(self.is_decoding == 0 and len(self.unmatched))
+
+    def clear(self):
+        self.data = None
+        for model in self.domainmodels:
+            model.set_domain(None)
+        self.unmatched = []
+        self.str_attr = self.lat_attr = self.lon_attr = None
+        self.mainArea.setVisible(False)
 
 
 def main():
@@ -295,7 +323,7 @@ def main():
     ow.show()
     ow.raise_()
     data = Table("India_census_district_population")
-    print(data[:10])
+    data = data[:10]
     ow.set_data(data)
 
     a.exec()
