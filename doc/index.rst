@@ -8,11 +8,8 @@ Widgets
    :maxdepth: 1
 
    widgets/geomap
-
-.. alternative ordering:
-   :glob:
-
-   widgets/*
+   widgets/geocoding
+   widgets/choropleth
 
 Module reference
 ----------------
