@@ -623,8 +623,7 @@ class OWMap(widget.OWWidget):
     TILE_PROVIDERS = OrderedDict((
         ('Black and white', 'OpenStreetMap.BlackAndWhite'),
         ('OpenStreetMap', 'OpenStreetMap.Mapnik'),
-        ('Topographic', 'Thunderforest.OpenCycleMap'),
-        ('Topographic 2', 'Thunderforest.Outdoors'),
+        ('Topographic', 'OpenTopoMap'),
         ('Satellite', 'Esri.WorldImagery'),
         ('Print', 'Stamen.TonerLite'),
         ('Dark', 'CartoDB.DarkMatter'),
