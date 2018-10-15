@@ -320,7 +320,7 @@ class OWGeocoding(widget.OWWidget):
 
         self.openContext(data)
         self.region_attr_changed()
-        self.mainArea.setVisible(self.is_decoding == 0 and len(self.unmatched))
+        self.mainArea.setVisible(self.is_decoding == 0 and len(self.replacements))
 
     def clear(self):
         self.data = None
