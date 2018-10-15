@@ -254,11 +254,13 @@ class OWGeocoding(widget.OWWidget):
             replacements = {k: v
                             for k, v in self.replacementsModel.tolist()
                             if v}
-            self.replacements = ([[name, '']
-                                  for name in self.unmatched
-                                  if name not in replacements] +
-                                 [[name, value]
-                                  for name, value in replacements.items()])
+
+            rep_unmatched = [[name, '']
+                             for name in self.unmatched
+                             if name not in replacements]
+            rep_matched = [list(items) for items in replacements.items()]
+
+            self.replacements = sorted(rep_unmatched + rep_matched)
             self.replacementsModel.wrap(self.replacements)
 
             progress.advance()
