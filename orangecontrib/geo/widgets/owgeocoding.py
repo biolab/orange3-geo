@@ -51,8 +51,6 @@ class OWGeocoding(widget.OWWidget):
 
     settingsHandler = settings.DomainContextHandler()
 
-    resizing_enabled = False
-
     ID_TYPE = OrderedDict((
         ('Country name', ToLatLon.from_cc_name),
         ('ISO 3166-1 alpha-2 country code', ToLatLon.from_cc2),
