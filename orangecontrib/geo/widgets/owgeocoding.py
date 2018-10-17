@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 from collections import OrderedDict
 
-from AnyQt.QtCore import Qt
-from AnyQt.QtWidgets import QComboBox, QItemEditorFactory, QLineEdit, \
+from AnyQt.QtCore import Qt, QPersistentModelIndex
+from AnyQt.QtWidgets import QComboBox, QItemDelegate, QLineEdit, \
     QCompleter, QHeaderView
 
 from Orange.data import Table, Domain, StringVariable, DiscreteVariable, ContinuousVariable
@@ -50,8 +50,6 @@ class OWGeocoding(widget.OWWidget):
         coded_data = Output("Coded Data", Table, default=True)
 
     settingsHandler = settings.DomainContextHandler()
-
-    resizing_enabled = False
 
     ID_TYPE = OrderedDict((
         ('Country name', ToLatLon.from_cc_name),
@@ -168,8 +166,8 @@ class OWGeocoding(widget.OWWidget):
 
         owwidget = self
 
-        class EditorFactory(QItemEditorFactory):
-            def createEditor(self, p_int, parent):
+        class TableItemDelegate(QItemDelegate):
+            def createEditor(self, parent, options, index):
                 nonlocal owwidget
                 edit = QLineEdit(parent)
                 wordlist = [''] + ToLatLon.valid_values(owwidget.ID_TYPE[owwidget.str_type])
@@ -177,10 +175,26 @@ class OWGeocoding(widget.OWWidget):
                     QCompleter(wordlist, edit,
                                caseSensitivity=Qt.CaseInsensitive,
                                filterMode=Qt.MatchContains))
+
+                def save_and_commit():
+                    if edit.text() and edit.text() in wordlist:
+                        model = index.model()
+                        pindex = QPersistentModelIndex(index)
+                        if pindex.isValid():
+                            new_index = pindex.sibling(pindex.row(),
+                                                       pindex.column())
+                            save = model.setData(new_index,
+                                                 edit.text(),
+                                                 Qt.EditRole)
+                            if save:
+                                owwidget.commit()
+                                return
+                    edit.clear()
+
+                edit.editingFinished.connect(save_and_commit)
                 return edit
 
-        self.factory = EditorFactory()
-        view.itemDelegate().setItemEditorFactory(self.factory)
+        view.setItemDelegate(TableItemDelegate())
         model.setHorizontalHeaderLabels(['Unmatched Identifier', 'Custom Replacement'])
         box = gui.vBox(self.mainArea)
         self.info_str = ' /'
@@ -240,11 +254,13 @@ class OWGeocoding(widget.OWWidget):
             replacements = {k: v
                             for k, v in self.replacementsModel.tolist()
                             if v}
-            self.replacements = ([[name, '']
-                                  for name in self.unmatched
-                                  if name not in replacements] +
-                                 [[name, value]
-                                  for name, value in replacements.items()])
+
+            rep_unmatched = [[name, '']
+                             for name in self.unmatched
+                             if name not in replacements]
+            rep_matched = [list(items) for items in replacements.items()]
+
+            self.replacements = sorted(rep_unmatched + rep_matched)
             self.replacementsModel.wrap(self.replacements)
 
             progress.advance()
@@ -304,7 +320,7 @@ class OWGeocoding(widget.OWWidget):
 
         self.openContext(data)
         self.region_attr_changed()
-        self.mainArea.setVisible(self.is_decoding == 0 and len(self.unmatched))
+        self.mainArea.setVisible(self.is_decoding == 0 and len(self.replacements))
 
     def clear(self):
         self.data = None
