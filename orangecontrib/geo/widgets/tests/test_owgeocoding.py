@@ -1,9 +1,12 @@
 # pylint: disable=protected-access
 import unittest
+import numpy as np
+import pandas as pd
 
-from Orange.data import Table
+from Orange.data import Table, Domain, DiscreteVariable
 from Orange.widgets.tests.base import WidgetTest
 from orangecontrib.geo.widgets.owgeocoding import OWGeocoding
+from orangecontrib.geo.mapper import ToLatLon, CC_NAME_TO_CC_NAME
 
 
 class TestOWGeocoding(WidgetTest):
@@ -59,6 +62,12 @@ class TestOWGeocoding(WidgetTest):
         self.send_signal(self.widget.Inputs.data, None)
         # removing data should have cleared the output
         self.assertIsNone(self.get_output(self.widget.Outputs.coded_data))
+
+    def test_cc_name_mapping(self):
+        # check if the CC_NAME_TO_CC_NAME maps to known values
+        known_countries = set(ToLatLon.valid_values(ToLatLon.from_cc_name))
+        mapped_countries = set(CC_NAME_TO_CC_NAME.values())
+        self.assertSetEqual(mapped_countries - known_countries, set())
 
     def test_all_continuous(self):
         # switch to Decode when all continuous data
