@@ -75,8 +75,7 @@ class TestOWMap(WidgetTest):
         self.widget.map.set_marker_label('latitude')
         self.widget.map.set_marker_shape('foo')
         self.widget.map.set_marker_size('latitude')
-        self.process_events(
-            until=lambda start_time=time.clock(): time.clock() - start_time > .2)
+        self.process_events()
         self.widget.map.set_marker_color(None)
         self.widget.map.set_marker_label(None)
         self.widget.map.set_marker_shape(None)
