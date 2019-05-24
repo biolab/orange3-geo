@@ -809,7 +809,7 @@ class OWMap(widget.OWWidget):
             model.set_domain(domain)
 
         lat, lon = find_lat_lon(data)
-        if lat or lon:
+        if lat is not None and lon is not None:
             self._combo_lat.setCurrentIndex(-1 if lat is None else self._latlon_model.indexOf(lat))
             self._combo_lon.setCurrentIndex(-1 if lat is None else self._latlon_model.indexOf(lon))
             self.lat_attr = lat.name
