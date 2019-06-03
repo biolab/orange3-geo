@@ -86,6 +86,8 @@ class LeafletMap(WebviewWidget):
         self._subset_ids = np.array([])
         self.is_js_path = None
 
+        self.stop = False
+
         self._should_fit_bounds = False
 
     def __del__(self):
@@ -560,7 +562,9 @@ class LeafletMap(WebviewWidget):
                                 np.random.random()))
 
             cur += self.N_POINTS_PER_ITER
-            if cur < len(visible):
+            if self.stop:
+                return
+            elif cur < len(visible):
                 QTimer.singleShot(10, add_points)
                 self._owwidget.progressBarAdvance(100 / n_iters, None)
             else:
@@ -782,9 +786,9 @@ class OWMap(widget.OWWidget):
 
     autocommit = settings.Setting(True)
 
-    def __del__(self):
-        self.progressBarFinished(None)
-        self.map = None
+    def onDeleteWidget(self):
+        self.map.stop = True
+        super().onDeleteWidget()
 
     def commit(self):
         self.Outputs.selected_data.send(self.selection)
