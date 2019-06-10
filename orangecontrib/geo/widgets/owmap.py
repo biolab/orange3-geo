@@ -4,6 +4,7 @@ from collections import OrderedDict
 from tempfile import mkstemp
 
 import numpy as np
+import sip
 
 from AnyQt.QtCore import Qt, QUrl, pyqtSignal, pyqtSlot, QTimer, QT_VERSION, QObject
 from AnyQt.QtGui import QImage, QPainter, QPen, QBrush, QColor
@@ -16,7 +17,7 @@ from Orange.data.util import scale
 from Orange.data import Table, Domain, TimeVariable, DiscreteVariable, ContinuousVariable
 from Orange.widgets import gui, widget, settings
 from Orange.widgets.utils.itemmodels import DomainModel
-from Orange.widgets.utils.webview import WebviewWidget
+from Orange.widgets.utils.webview import WebviewWidget, wait
 from Orange.widgets.utils.colorpalette import ColorPaletteGenerator, ContinuousPaletteGenerator
 from Orange.widgets.utils.annotated_data import create_annotated_table, ANNOTATED_DATA_SIGNAL_NAME
 from Orange.widgets.widget import Input, Output
@@ -26,6 +27,8 @@ from orangecontrib.geo.utils import find_lat_lon
 
 if QT_VERSION <= 0x050300:
     raise RuntimeError('Map widget only works with Qt 5.3+')
+
+JS_TIMEOUT = 60000
 
 
 class LeafletMap(WebviewWidget):
@@ -89,6 +92,16 @@ class LeafletMap(WebviewWidget):
         self.stop = False
 
         self._should_fit_bounds = False
+
+    def _evalJS(self, code):
+        wait(until=self._jsobject_channel.is_all_exposed, timeout=JS_TIMEOUT)
+        if sip.isdeleted(self):
+            return None
+        result = self._results.create()
+        self.runJavaScript(code, lambda x: self._results.store(result, x))
+        wait(until=lambda: result in self._results,
+             timeout=JS_TIMEOUT)
+        return self._results.pop(result)
 
     def __del__(self):
         os.remove(self._overlay_image_path)
@@ -447,7 +460,7 @@ class LeafletMap(WebviewWidget):
             y = (zoom_scale * (-PROJ_SCALE * y + .5)).round() + (map_pane_pos[1] - pixel_origin[1])
             return x, y
 
-    N_POINTS_PER_ITER = 666
+    N_POINTS_PER_ITER = 1500
 
     def redraw_markers_overlay_image(self, *args, new_image=False):
         if not args and not self._drawing_args or self.data is None:
