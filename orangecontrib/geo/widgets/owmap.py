@@ -107,7 +107,7 @@ class LeafletMap(WebviewWidget):
         os.remove(self._overlay_image_path)
         self._image_token = np.nan
 
-    def set_data(self, data, lat_attr, lon_attr):
+    def set_data(self, data, lat_attr, lon_attr, redraw=True):
         self.data = data
         self._image_token = np.nan  # Stop drawing previous image
         self._owwidget.progressBarFinished(None)
@@ -144,7 +144,8 @@ class LeafletMap(WebviewWidget):
         # Lat and/or Long is all-NaN. Clear the image and warn.
         if np.isnan(self._latlon_data).all(axis=0).any():
             self._owwidget.Warning.all_nan_slice()
-            self.redraw_markers_overlay_image(new_image=True)
+            if redraw:
+                self.redraw_markers_overlay_image(new_image=True)
             return
 
         if fit_bounds:
@@ -152,7 +153,7 @@ class LeafletMap(WebviewWidget):
                 QTimer.singleShot(1, self.fit_to_bounds)
             else:
                 self._should_fit_bounds = True
-        else:
+        elif redraw:
             self.redraw_markers_overlay_image(new_image=True)
 
     def showEvent(self, event):
@@ -847,7 +848,7 @@ class OWMap(widget.OWWidget):
 
         self.openContext(data)
 
-        self.map.set_data(self.data, self.lat_attr, self.lon_attr)
+        self.map.set_data(self.data, self.lat_attr, self.lon_attr, redraw=False)
         self.map.set_marker_color(self.color_attr, update=False)
         self.map.set_marker_label(self.label_attr, update=False)
         self.map.set_marker_shape(self.shape_attr, update=False)
