@@ -151,7 +151,7 @@ def init():
             if admin == 1 and cc == 'USA':
                 us_states[p['hasc'].split('.')[1]] = tup
 
-    kdtree = {admin: KDTree(centroids)
+    kdtree = {admin: KDTree(np.array(centroids))
               for admin, centroids in nearest_points.items()}
     cc_shapes['NUL'] = (None, NUL)  # tuple for Null Island
 
