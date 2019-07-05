@@ -17,7 +17,10 @@ from Orange.data.util import scale
 from Orange.data import Table, Domain, TimeVariable, DiscreteVariable, ContinuousVariable
 from Orange.widgets import gui, widget, settings
 from Orange.widgets.utils.itemmodels import DomainModel
-from Orange.widgets.utils.webview import WebviewWidget, wait
+try:
+    from orangewidget.utils.webview import WebviewWidget, wait
+except ImportError:
+    from Orange.widgets.utils.webview import WebviewWidget, wait
 from Orange.widgets.utils.colorpalette import ColorPaletteGenerator, ContinuousPaletteGenerator
 from Orange.widgets.utils.annotated_data import create_annotated_table, ANNOTATED_DATA_SIGNAL_NAME
 from Orange.widgets.widget import Input, Output
