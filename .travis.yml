@@ -1,11 +1,21 @@
 language: python
 sudo: false
 dist: trusty
-python: 3.6
 cache:
   apt: true
   pip: true
   ccache: true
+
+matrix:
+  include:
+    - python: '3.6'
+      env: ORANGE="3.16.0"
+
+    - python: '3.6'
+      env: ORANGE="release"
+
+    - python: '3.6'
+      env: ORANGE="master"
 
 addons:
   apt:
@@ -20,7 +30,7 @@ before_install:
 
 install:
   - pip install PyQt5==5.11.*
-  - pip install Orange3
+  - source $TRAVIS_BUILD_DIR/.travis/install_orange.sh
   - pip install pandas
   - pip install .
 
