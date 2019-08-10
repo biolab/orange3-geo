@@ -263,12 +263,28 @@ class LeafletMap(WebviewWidget):
                     if not np.isnan(min) else [])
             elif variable.is_discrete:
                 _values = np.asarray(self.data.domain[attr].values)
-                __values = self.data.get_column_view(variable)[0].astype(np.uint16)
+
+                encoded_values = self.data.get_column_view(variable)[0]
+                is_na = np.isnan(encoded_values)
+                contains_na = np.any(is_na)
+
+                # Add a NA value + gray color locally (does not change attribute properties)
+                if contains_na:
+                    _values = np.append(_values, "NA")
+                    used_colors = np.vstack((variable.colors, [186, 189, 182]))
+                    legend_tt = self._legend_values(variable, range(len(_values) - 1))
+                    legend_tt.append("NA")
+                else:
+                    used_colors = variable.colors
+                    legend_tt = self._legend_values(variable, range(len(_values)))
+
+                __values = encoded_values.astype(np.uint16, copy=True)
+                __values[is_na] = len(variable.colors)
                 self._raw_color_values = _values[__values]  # The joke's on you
                 self._scaled_color_values = __values
-                self._colorgen = ColorPaletteGenerator(len(variable.colors), variable.colors)
+                self._colorgen = ColorPaletteGenerator(len(used_colors), used_colors)
                 self._legend_colors = ['d',
-                                       self._legend_values(variable, range(len(_values))),
+                                       legend_tt,
                                        list(_values),
                                        [color_to_hex(self._colorgen.getRGB(i))
                                         for i in range(len(_values))]]

@@ -3,6 +3,7 @@ import unittest
 import numpy as np
 
 from AnyQt.QtCore import QT_VERSION
+from Orange import data
 from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
 from Orange.widgets.tests.base import WidgetTest
 from Orange.widgets.tests.utils import simulate
@@ -114,3 +115,27 @@ class TestOWMap(WidgetTest):
         self.send_signal(self.widget.Inputs.data, data)
         cb_attr_color = self.widget.controls.color_attr
         simulate.combobox_activate_item(cb_attr_color, data.domain.attributes[0].name)
+
+    def test_plot_nans_gray(self):
+        """ Test that missing values get assigned a new color """
+        x_data = np.array([
+            [13.8702458314692, 45.5157143495946, 0.0],
+            [14.5618722896744, 45.9940297351865, 1.0],
+            [13.6445001070469, 45.5258150652623, np.nan],
+            [13.7610002413114, 45.5461231622814, 0.0]
+        ])
+        domain = data.Domain(
+            [data.ContinuousVariable("lon"),
+             data.ContinuousVariable("lat"),
+             data.DiscreteVariable("cls", values=["blue", "red"])]
+        )
+
+        table1 = data.Table.from_numpy(domain, x_data)
+        self.send_signal(self.widget.Inputs.data, table1)
+        cb_attr_color = self.widget.controls.color_attr
+        simulate.combobox_activate_item(cb_attr_color, "cls")
+        self.assertTrue(len(set(self.widget.map._raw_color_values)) == 3)
+
+        table2 = data.Table.from_numpy(domain, x_data[[0, 1, 3]])
+        self.send_signal(self.widget.Inputs.data, table2)
+        self.assertTrue(len(set(self.widget.map._raw_color_values)) == 2)
