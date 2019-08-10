@@ -789,6 +789,13 @@ class OWMap(widget.OWWidget):
             map.set_jittering(self.jittering)
 
         def _set_clustering():
+            self._jittering.setEnabled(not self.cluster_points)
+            self._jittering.value_label.setEnabled(not self.cluster_points)
+            if self.cluster_points:
+                self._jittering.setToolTip("Jittering is disabled when 'Cluster points' is checked")
+            else:
+                self._jittering.setToolTip(None)
+
             map.set_clustering(self.cluster_points)
 
         self._opacity_slider = gui.hSlider(

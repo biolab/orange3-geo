@@ -139,3 +139,12 @@ class TestOWMap(WidgetTest):
         table2 = data.Table.from_numpy(domain, x_data[[0, 1, 3]])
         self.send_signal(self.widget.Inputs.data, table2)
         self.assertTrue(len(set(self.widget.map._raw_color_values)) == 2)
+
+    def test_hide_jitter_clustering(self):
+        """ Test that jittering is disabled when 'Cluster points' is checked """
+        self.send_signal(self.widget.Inputs.data, self.data)
+        self.widget.controls.cluster_points.setChecked(False)
+        self.assertTrue(self.widget._jittering.isEnabled())
+
+        self.widget.controls.cluster_points.setChecked(True)
+        self.assertTrue(not self.widget._jittering.isEnabled())
