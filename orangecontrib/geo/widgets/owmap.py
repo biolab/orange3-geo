@@ -268,26 +268,24 @@ class LeafletMap(WebviewWidget):
                 is_na = np.isnan(encoded_values)
                 contains_na = np.any(is_na)
 
+                used_colors = variable.colors
+                num_colors = len(used_colors)
                 # Add a NA value + gray color locally (does not change attribute properties)
                 if contains_na:
                     _values = np.append(_values, "NA")
-                    used_colors = np.vstack((variable.colors, [186, 189, 182]))
-                    legend_tt = self._legend_values(variable, range(len(_values) - 1))
-                    legend_tt.append("NA")
-                else:
-                    used_colors = variable.colors
-                    legend_tt = self._legend_values(variable, range(len(_values)))
+                    used_colors = np.vstack((variable.colors, [128, 128, 128]))
 
                 __values = encoded_values.astype(np.uint16, copy=True)
-                __values[is_na] = len(variable.colors)
+                __values[is_na] = num_colors
                 self._raw_color_values = _values[__values]  # The joke's on you
+                _values = _values[: num_colors]
                 self._scaled_color_values = __values
                 self._colorgen = ColorPaletteGenerator(len(used_colors), used_colors)
                 self._legend_colors = ['d',
-                                       legend_tt,
+                                       self._legend_values(variable, range(num_colors)),
                                        list(_values),
                                        [color_to_hex(self._colorgen.getRGB(i))
-                                        for i in range(len(_values))]]
+                                        for i in range(num_colors)]]
         finally:
             if update:
                 self.redraw_markers_overlay_image(new_image=True)
