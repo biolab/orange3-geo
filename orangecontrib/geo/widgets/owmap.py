@@ -272,7 +272,7 @@ class LeafletMap(WebviewWidget):
                 num_colors = len(used_colors)
                 # Add a NA value + gray color locally (does not change attribute properties)
                 if contains_na:
-                    _values = np.append(_values, "NA")
+                    _values = np.append(_values, "?")
                     used_colors = np.vstack((variable.colors, [128, 128, 128]))
 
                 __values = encoded_values.astype(np.uint16, copy=True)
