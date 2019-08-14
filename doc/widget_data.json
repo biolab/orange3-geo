@@ -1,0 +1,23 @@
+{
+"Geo Map": {
+"title": "Geo Map",
+"file": "widgets/geomap.md",
+"icon": "widgets/icons/geomap.png",
+"keywords": [],
+"category": "Geo"
+},
+"Geocoding": {
+"title": "Geocoding",
+"file": "widgets/geocoding.md",
+"icon": "widgets/icons/geocoding.png",
+"keywords": [],
+"category": "Geo"
+},
+"Choropleth": {
+"title": "Choropleth",
+"file": "widgets/choropleth.md",
+"icon": "widgets/icons/Geocoding.png",
+"keywords": [],
+"category": "Geo"
+}
+}
