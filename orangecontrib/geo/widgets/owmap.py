@@ -263,15 +263,29 @@ class LeafletMap(WebviewWidget):
                     if not np.isnan(min) else [])
             elif variable.is_discrete:
                 _values = np.asarray(self.data.domain[attr].values)
-                __values = self.data.get_column_view(variable)[0].astype(np.uint16)
+
+                encoded_values = self.data.get_column_view(variable)[0]
+                is_na = np.isnan(encoded_values)
+                contains_na = np.any(is_na)
+
+                used_colors = variable.colors
+                num_colors = len(used_colors)
+                # Add a NA value + gray color locally (does not change attribute properties)
+                if contains_na:
+                    _values = np.append(_values, "?")
+                    used_colors = np.vstack((variable.colors, [128, 128, 128]))
+
+                __values = encoded_values.astype(np.uint16, copy=True)
+                __values[is_na] = num_colors
                 self._raw_color_values = _values[__values]  # The joke's on you
+                _values = _values[: num_colors]
                 self._scaled_color_values = __values
-                self._colorgen = ColorPaletteGenerator(len(variable.colors), variable.colors)
+                self._colorgen = ColorPaletteGenerator(len(used_colors), used_colors)
                 self._legend_colors = ['d',
-                                       self._legend_values(variable, range(len(_values))),
+                                       self._legend_values(variable, range(num_colors)),
                                        list(_values),
                                        [color_to_hex(self._colorgen.getRGB(i))
-                                        for i in range(len(_values))]]
+                                        for i in range(num_colors)]]
         finally:
             if update:
                 self.redraw_markers_overlay_image(new_image=True)
@@ -773,6 +787,13 @@ class OWMap(widget.OWWidget):
             map.set_jittering(self.jittering)
 
         def _set_clustering():
+            self._jittering.setEnabled(not self.cluster_points)
+            self._jittering.value_label.setEnabled(not self.cluster_points)
+            if self.cluster_points:
+                self._jittering.setToolTip("Jittering is disabled when 'Cluster points' is checked")
+            else:
+                self._jittering.setToolTip(None)
+
             map.set_clustering(self.cluster_points)
 
         self._opacity_slider = gui.hSlider(
