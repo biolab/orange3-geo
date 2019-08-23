@@ -100,7 +100,7 @@ class LeafletMap(WebviewWidget):
     def set_data(self, data, lat_attr, lon_attr, redraw=True):
         self.data = data
         self._image_token = np.nan  # Stop drawing previous image
-        self._owwidget.progressBarFinished(None)
+        self._owwidget.progressBarFinished()
         self._owwidget.Warning.all_nan_slice.clear()
 
         if (data is None or not len(data) or
@@ -584,13 +584,13 @@ class LeafletMap(WebviewWidget):
                 return
             elif cur < len(visible):
                 QTimer.singleShot(10, add_points)
-                self._owwidget.progressBarAdvance(100 / n_iters, None)
+                self._owwidget.progressBarAdvance(100 / n_iters)
             else:
-                self._owwidget.progressBarFinished(None)
+                self._owwidget.progressBarFinished()
                 self._image_token = None
 
-        self._owwidget.progressBarFinished(None)
-        self._owwidget.progressBarInit(None)
+        self._owwidget.progressBarFinished()
+        self._owwidget.progressBarInit()
         QTimer.singleShot(10, add_points)
 
     def set_subset_ids(self, ids):
