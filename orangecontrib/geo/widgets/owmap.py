@@ -13,7 +13,7 @@ from AnyQt.QtWidgets import qApp
 from Orange.util import color_to_hex
 from Orange.base import Learner
 from Orange.data.util import scale
-from Orange.data import Table, Domain, TimeVariable, DiscreteVariable, ContinuousVariable
+from Orange.data import Table, Domain, TimeVariable, DiscreteVariable, ContinuousVariable, Variable
 from Orange.widgets import gui, widget, settings
 from Orange.widgets.utils.itemmodels import DomainModel
 try:
@@ -627,15 +627,16 @@ class OWMap(widget.OWWidget):
 
     want_main_area = True
 
+    settings_version = 2
     autocommit = settings.Setting(True)
     tile_provider = settings.Setting('Black and white')
-    lat_attr = settings.ContextSetting('')
-    lon_attr = settings.ContextSetting('')
-    class_attr = settings.ContextSetting('(None)')
-    color_attr = settings.ContextSetting('')
-    label_attr = settings.ContextSetting('')
-    shape_attr = settings.ContextSetting('')
-    size_attr = settings.ContextSetting('')
+    lat_attr = settings.ContextSetting(None)
+    lon_attr = settings.ContextSetting(None)
+    class_attr = settings.ContextSetting(None)
+    color_attr = settings.ContextSetting(None)
+    label_attr = settings.ContextSetting(None)
+    shape_attr = settings.ContextSetting(None)
+    size_attr = settings.ContextSetting(None)
     opacity = settings.Setting(100)
     zoom = settings.Setting(100)
     jittering = settings.Setting(0)
@@ -713,12 +714,12 @@ class OWMap(widget.OWWidget):
 
         self._combo_lat = combo = gui.comboBox(
             box, self, 'lat_attr', orientation=Qt.Horizontal,
-            label='Latitude:', sendSelectedValue=True, callback=_set_lat_long)
-        combo.setModel(self._latlon_model)
+            label='Latitude:', sendSelectedValue=True, callback=_set_lat_long,
+            model=self._latlon_model)
         self._combo_lon = combo = gui.comboBox(
             box, self, 'lon_attr', orientation=Qt.Horizontal,
-            label='Longitude:', sendSelectedValue=True, callback=_set_lat_long)
-        combo.setModel(self._latlon_model)
+            label='Longitude:', sendSelectedValue=True, callback=_set_lat_long,
+            model=self._latlon_model)
 
         def _toggle_legend():
             self.map.toggle_legend(self.show_legend)
@@ -729,9 +730,8 @@ class OWMap(widget.OWWidget):
         box = gui.vBox(self.controlArea, 'Overlay')
         self._combo_class = combo = gui.comboBox(
             box, self, 'class_attr', orientation=Qt.Horizontal,
-            label='Target:', sendSelectedValue=True, callback=self.train_model
-        )
-        self.controls.class_attr.setModel(self._class_model)
+            label='Target:', sendSelectedValue=True, callback=self.train_model,
+            model=self._class_model)
         self.set_learner(self.learner)
 
         box = gui.vBox(self.controlArea, 'Points')
@@ -740,29 +740,29 @@ class OWMap(widget.OWWidget):
             orientation=Qt.Horizontal,
             label='Color:',
             sendSelectedValue=True,
-            callback=lambda: self.map.set_marker_color(self.color_attr))
-        combo.setModel(self._color_model)
+            callback=lambda: self.map.set_marker_color(self.color_attr),
+            model=self._color_model)
         self._combo_label = combo = gui.comboBox(
             box, self, 'label_attr',
             orientation=Qt.Horizontal,
             label='Label:',
             sendSelectedValue=True,
-            callback=lambda: self.map.set_marker_label(self.label_attr))
-        combo.setModel(self._label_model)
+            callback=lambda: self.map.set_marker_label(self.label_attr),
+            model=self._label_model)
         self._combo_shape = combo = gui.comboBox(
             box, self, 'shape_attr',
             orientation=Qt.Horizontal,
             label='Shape:',
             sendSelectedValue=True,
-            callback=lambda: self.map.set_marker_shape(self.shape_attr))
-        combo.setModel(self._shape_model)
+            callback=lambda: self.map.set_marker_shape(self.shape_attr),
+            model=self._shape_model)
         self._combo_size = combo = gui.comboBox(
             box, self, 'size_attr',
             orientation=Qt.Horizontal,
             label='Size:',
             sendSelectedValue=True,
-            callback=lambda: self.map.set_marker_size(self.size_attr))
-        combo.setModel(self._size_model)
+            callback=lambda: self.map.set_marker_size(self.size_attr),
+            model=self._size_model)
 
         def _set_opacity():
             map.set_marker_opacity(self.opacity)
@@ -837,25 +837,9 @@ class OWMap(widget.OWWidget):
                       self._label_model):
             model.set_domain(domain)
 
-        lat, lon = find_lat_lon(data)
-        if lat is not None and lon is not None:
-            self._combo_lat.setCurrentIndex(-1 if lat is None else self._latlon_model.indexOf(lat))
-            self._combo_lon.setCurrentIndex(-1 if lat is None else self._latlon_model.indexOf(lon))
-            self.lat_attr = lat.name
-            self.lon_attr = lon.name
-
+        self.lat_attr, self.lon_attr = find_lat_lon(data)
         if data.domain.class_var:
-            self.color_attr = data.domain.class_var.name
-        elif len(self._color_model):
-            self._combo_color.setCurrentIndex(0)
-        if len(self._shape_model):
-            self._combo_shape.setCurrentIndex(0)
-        if len(self._size_model):
-            self._combo_size.setCurrentIndex(0)
-        if len(self._label_model):
-            self._combo_label.setCurrentIndex(0)
-        if len(self._class_model):
-            self._combo_class.setCurrentIndex(0)
+            self.color_attr = data.domain.class_var
 
         self.openContext(data)
 
@@ -917,6 +901,28 @@ class OWMap(widget.OWWidget):
             model.set_domain(None)
         self.lat_attr = self.lon_attr = self.class_attr = self.color_attr = \
         self.label_attr = self.shape_attr = self.size_attr = None
+
+    @classmethod
+    def migrate_context(cls, context, version):
+        if version < 2:
+            settings.migrate_str_to_variable(context, names="lat_attr",
+                                             none_placeholder="")
+            settings.migrate_str_to_variable(context, names="lon_attr",
+                                             none_placeholder="")
+            settings.migrate_str_to_variable(context, names="class_attr",
+                                             none_placeholder="(None)")
+
+            # those settings can have two none placeholder
+            attr_placeholders = [("color_attr", "(Same color)"),
+                                 ("label_attr", "(No labels)"),
+                                 ("shape_attr", "(Same shape)"),
+                                 ("size_attr", "(Same size)")]
+            for attr, place in attr_placeholders:
+                if context.values[attr][0] == place:
+                    context.values[attr] = ("", context.values[attr][1])
+
+                settings.migrate_str_to_variable(context, names=attr,
+                                                 none_placeholder="")
 
 
 def main():
