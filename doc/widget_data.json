@@ -16,7 +16,7 @@
 "Choropleth": {
 "title": "Choropleth",
 "file": "widgets/choropleth.md",
-"icon": "widgets/icons/Geocoding.png",
+"icon": "widgets/icons/choropleth.png",
 "keywords": [],
 "category": "Geo"
 }
