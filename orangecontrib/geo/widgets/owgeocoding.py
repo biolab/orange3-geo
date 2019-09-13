@@ -10,6 +10,7 @@ from AnyQt.QtWidgets import QComboBox, QItemDelegate, QLineEdit, \
     QCompleter, QHeaderView
 
 from Orange.data import Table, Domain, StringVariable, DiscreteVariable, ContinuousVariable
+from Orange.data.util import get_unique_names
 from Orange.widgets import gui, widget, settings
 from Orange.widgets.utils.itemmodels import DomainModel, PyTableModel
 from Orange.widgets.widget import Input, Output
@@ -19,14 +20,6 @@ from orangecontrib.geo.mapper import latlon2region, ToLatLon
 
 log = logging.getLogger(__name__)
 
-
-def available_name(domain, template):
-    """Return the next available variable name (from template) that is not
-    already taken in domain"""
-    for i in range(100000):
-        name = '{}{}'.format(template, ('_' + str(i)) if i else '')
-        if name not in domain:
-            return name
 
 def guess_region_attr_name(data):
     """Return the name of the first variable that could specify a region name"""
@@ -218,9 +211,14 @@ class OWGeocoding(widget.OWWidget):
     def commit(self):
         output = None
         if self.data is not None and len(self.data):
-            output = self.decode() if self.is_decoding else self.encode()
-            if output is not None:
-                output = self.data.concatenate((self.data, output))
+            data, metas = self.decode() if self.is_decoding else self.encode()
+            if data is not None:
+                output = self.data.transform(
+                    Domain(self.data.domain.attributes,
+                           self.data.domain.class_vars,
+                           self.data.domain.metas + metas))
+                output.metas[:, -data.shape[1]:] = data
+
         self.Outputs.coded_data.send(output)
 
     def decode(self):
@@ -286,16 +284,20 @@ class OWGeocoding(widget.OWWidget):
 
     def _to_addendum(self, df, keep):
         if not df.shape[1]:
-            return None
+            return None, None
 
         df.drop(['_id', 'adm0_a3'], axis=1, inplace=True)
         addendum = df if self.append_features else df[keep]
-        table = Table(Domain(
-            [], metas=[(ContinuousVariable if col in ('latitude', 'longitude') else
-                        StringVariable)(available_name(self.data.domain, col))
-                       for col in addendum]),
-            np.empty((len(addendum), 0)), None, addendum.values)
-        return table
+
+        metas = []
+        for col in addendum:
+            unique_name = get_unique_names(self.data.domain, col)
+            if col in ('latitude', 'longitude'):
+                metas.append(ContinuousVariable(unique_name))
+            else:
+                metas.append(StringVariable(unique_name))
+
+        return addendum.values, tuple(metas)
 
     @Inputs.data
     def set_data(self, data):
