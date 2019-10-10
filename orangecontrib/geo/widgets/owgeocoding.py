@@ -26,7 +26,7 @@ def guess_region_attr_name(data):
     string_vars = (var for var in data.domain.metas if var.is_string)
     discrete_vars = (var for var in data.domain.variables if var.is_discrete)
     for var in chain(string_vars, discrete_vars):
-        return var.name
+        return var
 
 
 class OWGeocoding(widget.OWWidget):
@@ -42,6 +42,7 @@ class OWGeocoding(widget.OWWidget):
     class Outputs:
         coded_data = Output("Coded Data", Table, default=True)
 
+    settings_version = 2
     settingsHandler = settings.DomainContextHandler()
 
     ID_TYPE = OrderedDict((
@@ -61,10 +62,10 @@ class OWGeocoding(widget.OWWidget):
 
     autocommit = settings.Setting(True)
     is_decoding = settings.ContextSetting(0)
-    str_attr = settings.ContextSetting('')
+    str_attr = settings.ContextSetting(None)
     str_type = settings.ContextSetting(next(iter(ID_TYPE)))
-    lat_attr = settings.ContextSetting('')
-    lon_attr = settings.ContextSetting('')
+    lat_attr = settings.ContextSetting(None)
+    lon_attr = settings.ContextSetting(None)
     admin = settings.ContextSetting(0)
     append_features = settings.Setting(False)
 
@@ -98,9 +99,9 @@ class OWGeocoding(widget.OWWidget):
         self.domainmodels.append(model)
 
         combo = gui.comboBox(
-            box, self, 'str_attr', label='Region identifier:', orientation=Qt.Horizontal,
-            callback=self.region_attr_changed, sendSelectedValue=True)
-        combo.setModel(model)
+            box, self, 'str_attr', label='Region identifier:',
+            orientation=Qt.Horizontal, callback=self.region_attr_changed,
+            sendSelectedValue=True, model=model)
         gui.comboBox(
             box, self, 'str_type', label='Identifier type:', orientation=Qt.Horizontal,
             items=tuple(self.ID_TYPE.keys()), callback=lambda: self.commit(), sendSelectedValue=True)
@@ -117,12 +118,10 @@ class OWGeocoding(widget.OWWidget):
         self.domainmodels.append(model)
         combo = gui.comboBox(
             box, self, 'lat_attr', label='Latitude:', orientation=Qt.Horizontal,
-            callback=lambda: self.commit(), sendSelectedValue=True)
-        combo.setModel(model)
+            callback=lambda: self.commit(), sendSelectedValue=True, model=model)
         combo = gui.comboBox(
             box, self, 'lon_attr', label='Longitude:', orientation=Qt.Horizontal,
-            callback=lambda: self.commit(), sendSelectedValue=True)
-        combo.setModel(model)
+            callback=lambda: self.commit(), sendSelectedValue=True, model=model)
         gui.comboBox(
             box, self, 'admin', label='Administrative level:', orientation=Qt.Horizontal,
             callback=lambda: self.commit(),
@@ -271,8 +270,8 @@ class OWGeocoding(widget.OWWidget):
 
         values = self.data.get_column_view(self.str_attr)[0]
         # no comment
-        if self.data.domain[self.str_attr].is_discrete:
-            values = np.array(self.data.domain[self.str_attr].values)[values.astype(np.int16)].astype(str)
+        if self.str_attr.is_discrete:
+            values = np.array(self.str_attr.values)[values.astype(np.int16)].astype(str)
         values = pd.Series(values)
 
         # Apply replacements from the replacements table
@@ -316,9 +315,7 @@ class OWGeocoding(widget.OWWidget):
         if attr is None:
             self.is_decoding = 1
 
-        lat, lon = find_lat_lon(data)
-        self.lat_attr = lat.name if lat else None
-        self.lon_attr = lon.name if lon else None
+        self.lat_attr, self.lon_attr = find_lat_lon(data)
 
         self.openContext(data)
         self.region_attr_changed()
@@ -332,6 +329,12 @@ class OWGeocoding(widget.OWWidget):
         self.str_attr = self.lat_attr = self.lon_attr = None
         self.mainArea.setVisible(False)
 
+    @classmethod
+    def migrate_context(cls, context, version):
+        if version < 2:
+            for attr in ["str_attr", "lat_attr", "lon_attr"]:
+                settings.migrate_str_to_variable(context, names=attr,
+                                                 none_placeholder="")
 
 def main():
     from AnyQt.QtWidgets import QApplication
