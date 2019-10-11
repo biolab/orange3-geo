@@ -1,5 +1,5 @@
-Choropleth
-==========
+Choropleth Map
+==============
 
 A thematic map in which areas are shaded in proportion to the measurement of the statistical variable being displayed.
 
