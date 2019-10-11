@@ -1,0 +1,28 @@
+[
+ [
+  "Geo",
+  [
+   {
+    "text": "Geocoding",
+    "doc": "widgets/geocoding.md",
+    "icon": "../orangecontrib/geo/widgets/icons/Geocoding.svg",
+    "background": "#a0eaa0",
+    "keywords": []
+   },
+   {
+    "text": "Geo Map",
+    "doc": "widgets/geomap.md",
+    "icon": "../orangecontrib/geo/widgets/icons/GeoMap.svg",
+    "background": "#a0eaa0",
+    "keywords": []
+   },
+   {
+    "text": "Choropleth Map",
+    "doc": "widgets/choroplethmap.md",
+    "icon": "../orangecontrib/geo/widgets/icons/Choropleth.svg",
+    "background": "#a0eaa0",
+    "keywords": []
+   }
+  ]
+ ]
+]

@@ -9,15 +9,8 @@ Widgets
 
    widgets/geomap
    widgets/geocoding
-   widgets/choropleth
+   widgets/choroplethmap
 
-Module reference
-----------------
-
-.. toctree::
-   :maxdepth: 2
-
-   reference
 
 Indices and tables
 ------------------
