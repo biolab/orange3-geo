@@ -3,13 +3,16 @@ from itertools import chain
 import numpy as np
 
 from Orange.data import Table
+from Orange.data.domain import filter_visible
 
 
-def find_lat_lon(data):
+def find_lat_lon(data, filter_hidden=False):
     """Return inferred latitude and longitude attributes as found in the data domain"""
     assert isinstance(data, Table)
 
     all_vars = list(chain(data.domain.variables, data.domain.metas))
+    if filter_hidden:
+        all_vars = list(filter_visible(all_vars))
 
     lat_attr = next(
         (attr for attr in all_vars

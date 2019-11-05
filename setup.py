@@ -68,6 +68,7 @@ if __name__ == '__main__':
             'scipy>=0.17',
             'shapely',
             'simplejson',
+            'Pillow'
         ],
         entry_points=ENTRY_POINTS,
         keywords=(
