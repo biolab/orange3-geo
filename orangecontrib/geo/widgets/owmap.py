@@ -1,906 +1,816 @@
 import os
-from itertools import chain, repeat
-from collections import OrderedDict
-from tempfile import mkstemp
+import weakref
+from io import BytesIO
+from concurrent.futures import Future
+from typing import List, NamedTuple
+from functools import partial
+from contextlib import closing
 
+from PIL import Image
 import numpy as np
 
-from AnyQt.QtCore import Qt, QUrl, pyqtSignal, pyqtSlot, QTimer, QT_VERSION, QObject
-from AnyQt.QtGui import QImage, QPainter, QPen, QBrush, QColor
-from AnyQt.QtWidgets import qApp
+from AnyQt.QtWidgets import QApplication
+from AnyQt.QtCore import Qt, QObject, QThread, QRect, QRectF, QUrl, \
+    pyqtSignal as Signal
+from AnyQt.QtNetwork import QNetworkAccessManager, QNetworkDiskCache,\
+    QNetworkRequest, QNetworkReply
+from AnyQt.QtGui import QBrush, QColor
 
+from pyqtgraph import Point, ImageItem, ViewBox, LabelItem
+import pyqtgraph.functions as fn
 
-from Orange.util import color_to_hex
-from Orange.base import Learner
-from Orange.data.util import scale
-from Orange.data import Table, Domain, TimeVariable, DiscreteVariable, ContinuousVariable, Variable
-from Orange.widgets import gui, widget, settings
+from Orange.data import Table, ContinuousVariable
+from Orange.misc.environ import data_dir
+from Orange.widgets import gui, settings
+from Orange.widgets.utils.widgetpreview import WidgetPreview
 from Orange.widgets.utils.itemmodels import DomainModel
-try:
-    from orangewidget.utils.webview import WebviewWidget
-except ImportError:
-    from Orange.widgets.utils.webview import WebviewWidget
-from Orange.widgets.utils.colorpalette import ColorPaletteGenerator, ContinuousPaletteGenerator
-from Orange.widgets.utils.annotated_data import create_annotated_table, ANNOTATED_DATA_SIGNAL_NAME
-from Orange.widgets.widget import Input, Output
+from Orange.widgets.utils.plot import ZOOMING
+from Orange.widgets.widget import Msg
+from Orange.widgets.visualize.utils.widget import OWDataProjectionWidget
+from Orange.widgets.visualize.owscatterplotgraph import OWScatterPlotBase, \
+    LegendItem
+from Orange.widgets.visualize.utils.plotutils import InteractiveViewBox
 
 from orangecontrib.geo.utils import find_lat_lon
 
 
-if QT_VERSION <= 0x050300:
-    raise RuntimeError('Map widget only works with Qt 5.3+')
+MAX_LATITUDE = 85.0511287798
+MAX_LONGITUDE = 180
 
 
-class LeafletMap(WebviewWidget):
-    selectionChanged = pyqtSignal(list)
+def deg2norm(lon_deg, lat_deg):
+    """
+    Transform GLOBE (curved) lat, lon to Pseudo-Mercator (flat) normalized,
+    zoom independent x, y.
+    See: https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
+    """
+    lon_rad = np.radians(np.clip(lon_deg, -MAX_LONGITUDE, MAX_LONGITUDE))
+    lat_rad = np.radians(np.clip(lat_deg, -MAX_LATITUDE, MAX_LATITUDE))
+    x = (1 + lon_rad / np.pi) / 2
+    y = (1 - np.log(np.tan(lat_rad) + (1 / np.cos(lat_rad))) / np.pi) / 2
+    return x, y
 
-    def __init__(self, parent=None):
 
-        class Bridge(QObject):
-            @pyqtSlot()
-            def fit_to_bounds(_):
-                return self.fit_to_bounds()
+def norm2tile(x, y, zoom):
+    """
+    Transform normalized x, y coordinates into tilex, tiley coordinates
+    according to zoom.
+    """
+    n = 2 ** zoom
+    return x * n, y * n
 
-            @pyqtSlot(float, float, float, float)
-            def selected_area(_, *args):
-                return self.selected_area(*args)
 
-            @pyqtSlot('QVariantList')
-            def recompute_heatmap(_, *args):
-                return self.recompute_heatmap(*args)
+def tile2norm(x, y, zoom):
+    """
+    Transform tilex, tiley coordinates into normalized x, y coordinates
+    according to zoom.
+    """
+    n = 2 ** zoom
+    return x / n, y / n
 
-            @pyqtSlot(float, float, float, float, int, int, float, 'QVariantList', 'QVariantList')
-            def redraw_markers_overlay_image(_, *args):
-                return self.redraw_markers_overlay_image(*args)
 
-        super().__init__(parent,
-                         bridge=Bridge(),
-                         url=QUrl(self.toFileURL(
-                             os.path.join(os.path.dirname(__file__), '_leaflet', 'owmap.html'))),
-                         debug=True,)
-        self.jittering = 0
-        self._jittering_offsets = None
-        self._owwidget = parent
-        self._opacity = 255
-        self._sizes = None
-        self._selected_indices = None
+_TileProvider = NamedTuple(
+    "_TileProvider", [
+        ("url", str),
+        ("attribution", str),
+        ("size", int),
+        ("max_zoom", int),
+    ]
+)
 
-        self.lat_attr = None
-        self.lon_attr = None
-        self.data = None
-        self.model = None
-        self._domain = None
-        self._latlon_data = None
 
-        self._jittering = None
-        self._color_attr = None
-        self._label_attr = None
-        self._shape_attr = None
-        self._size_attr = None
-        self._legend_colors = []
-        self._legend_shapes = []
-        self._legend_sizes = []
+class _TileItem:
+    def __init__(self, x: int, y: int, z: int, tile_provider: _TileProvider):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.tile_provider = tile_provider
+        self.url = tile_provider.url.format(x=x, y=y, z=z)
+        self.disc_cache = False
+        self.n_loadings = 1
 
-        self._drawing_args = None
-        self._image_token = None
-        self._prev_map_pane_pos = None
-        self._prev_origin = None
-        self._overlay_image_path = mkstemp(prefix='orange-Map-', suffix='.png')[1]
-        self._subset_ids = np.array([])
-        self.is_js_path = None
+    def __hash__(self):
+        return hash(self.url)
 
-        self.stop = False
+    def __eq__(self, other):
+        return self.url == other.url
 
-        self._should_fit_bounds = False
 
-    def __del__(self):
-        os.remove(self._overlay_image_path)
-        self._image_token = np.nan
+TILE_PROVIDERS = {
+    "OpenStreetMap": _TileProvider(
+        url="http://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+        size=256,
+        max_zoom=18
+    ),
+    "Black and white": _TileProvider(
+        url="http://tiles.wmflabs.org/bw-mapnik/{z}/{x}/{y}.png",
+        attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+        size=256,
+        max_zoom=18
+    ),
+    "Topographic": _TileProvider(
+        url="http://tile.opentopomap.org/{z}/{x}/{y}.png",
+        attribution='map data: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
+        size=256,
+        max_zoom=17
+    ),
+    "Satellite": _TileProvider(
+        url="http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attribution="Sources: Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community",
+        size=256,
+        max_zoom=19
+    ),
+    "Print": _TileProvider(
+        url="http://tile.stamen.com/toner/{z}/{x}/{y}.png",
+        attribution='Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.',
+        size=256,
+        max_zoom=20
+    ),
+    "Dark": _TileProvider(
+        url="http://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+        attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        size=256,
+        max_zoom=19
+    ),
+}
+DEFAULT_TILE_PROVIDERS = next(iter(TILE_PROVIDERS))
 
-    def set_data(self, data, lat_attr, lon_attr, redraw=True):
-        self.data = data
-        self._image_token = np.nan  # Stop drawing previous image
-        self._owwidget.progressBarFinished()
-        self._owwidget.Warning.all_nan_slice.clear()
 
-        if (data is None or not len(data) or
-                lat_attr not in data.domain or
-                lon_attr not in data.domain):
-            self.data = None
-            self.evalJS('clear_markers_js(); clear_markers_overlay_image();')
-            self._legend_colors = []
-            self._legend_shapes = []
-            self._legend_sizes = []
-            self._update_legend()
-            return
+class MapViewBox(InteractiveViewBox):
+    """ViewBox to be used for maps since it knows how to properly handle zoom"""
+    def __init__(self, graph, enable_menu=False):
+        super().__init__(graph, enable_menu=enable_menu)
+        self.__zoom_level = 2
+        self.__tile_provider = None  # type: _TileProvider
 
-        lat_attr = data.domain[lat_attr]
-        lon_attr = data.domain[lon_attr]
-
-        fit_bounds = (self._domain != data.domain or
-                      self.lat_attr is not lat_attr or
-                      self.lon_attr is not lon_attr)
-        self.lat_attr = lat_attr
-        self.lon_attr = lon_attr
-        self._domain = data.domain
-
-        self._latlon_data = np.array([
-            self.data.get_column_view(self.lat_attr)[0],
-            self.data.get_column_view(self.lon_attr)[0]],
-            dtype=float, order='F').T
-
-        self._recompute_jittering_offsets()
-
-        # Lat and/or Long is all-NaN. Clear the image and warn.
-        if np.isnan(self._latlon_data).all(axis=0).any():
-            self._owwidget.Warning.all_nan_slice()
-            if redraw:
-                self.redraw_markers_overlay_image(new_image=True)
-            return
-
-        if fit_bounds:
-            if self.isVisible():
-                QTimer.singleShot(1, self.fit_to_bounds)
-            else:
-                self._should_fit_bounds = True
-        elif redraw:
-            self.redraw_markers_overlay_image(new_image=True)
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        if self._should_fit_bounds:
-            QTimer.singleShot(500, self.fit_to_bounds)
-            self._should_fit_bounds = False
-
-    def fit_to_bounds(self, fly=True):
-        if self.data is None:
-            return
-        lat_data, lon_data = self._latlon_data.T
-        if np.isnan(lat_data).all() or np.isnan(lon_data).all():
-            script = 'map.setView([0, 0], 0)'
+    def wheelEvent(self, ev, axis=None):
+        """Override wheel event so we manually track changes of zoom and
+        update map accordingly."""
+        if ev.delta() > 0:
+            # zoom-in
+            self.__zoom_level = self.__zoom_in_range(self.__zoom_level + 1)
         else:
-            north, south = np.nanmax(lat_data), np.nanmin(lat_data)
-            east, west = np.nanmin(lon_data), np.nanmax(lon_data)
-            script = ('map.%sBounds([[%f, %f], [%f, %f]], {padding: [0,0], minZoom: 2, maxZoom: 13})' %
-                      ('flyTo' if fly else 'fit', south, west, north, east))
-        self.evalJS(script)
-        # Sometimes on first data, it doesn't zoom in enough. So let do it
-        # once more for good measure!
-        self.evalJS(script)
+            # zoom-out
+            self.__zoom_level = self.__zoom_in_range(self.__zoom_level - 1)
 
-    def selected_area(self, north, east, south, west):
-        indices = np.array([])
-        prev_selected_indices = self._selected_indices
-        if self.data is not None and (north != south and east != west):
-            lat, lon = self._latlon_data.T
-            indices = ((lat <= north) & (lat >= south) &
-                       (lon <= east) & (lon >= west))
-            if self._selected_indices is not None:
-                indices |= self._selected_indices
-            self._selected_indices = indices
+        center = Point(fn.invertQTransform(self.childGroup.transform()).map(ev.pos()))
+        self.match_zoom(center, offset=True)
+        ev.accept()
+
+    def mouseDragEvent(self, ev, axis=None):
+        """Override from InteractiveViewBox with updated zooming."""
+        def get_mapped_rect():
+            p1, p2 = ev.buttonDownPos(ev.button()), ev.pos()
+            p1 = self.mapToView(p1)
+            p2 = self.mapToView(p2)
+            return QRectF(p1, p2)
+
+        def zoom():
+            ev.accept()
+            self.rbScaleBox.hide()
+            ax = get_mapped_rect()
+            # we recalculate approximate zoom and viewRect
+            # we cannot use the exact rect because then the map would be blurry
+            rect = ax.normalized()
+            self.recalculate_zoom(rect.width(), rect.height())
+            self.match_zoom(rect.center())
+
+        if self.graph.state == ZOOMING \
+                and ev.button() & (Qt.LeftButton | Qt.MidButton) \
+                and self.state['mouseMode'] == ViewBox.RectMode \
+                and ev.isFinish():
+            zoom()
+        elif ev.button() & Qt.RightButton:
+            ev.ignore()
         else:
-            self._selected_indices = None
-        if np.any(self._selected_indices != prev_selected_indices):
-            self.selectionChanged.emit(indices.nonzero()[0].tolist())
-            self.redraw_markers_overlay_image(new_image=True)
+            super().mouseDragEvent(ev, axis=axis)
 
-    def set_map_provider(self, provider):
-        self.evalJS('set_map_provider("{}");'.format(provider))
+    def mouseClickEvent(self, ev):
+        if ev.button() == Qt.RightButton:
+            ev.ignore()
+        else:
+            super().mouseClickEvent(ev)
 
-    def set_clustering(self, cluster_points):
-        self.evalJS('''
-            window.cluster_points = {};
-            set_cluster_points();
-        '''.format(int(cluster_points)))
+    def match_zoom(self, center: Point, offset=False):
+        """
+        Find the right rectangle of visualization so that maps and
+        screens resolutions match.
+        :param center: center point of the new rectangle
+        :param offset: set true if center is offset so the visualization
+        doesn't jump around (used from zooming)
+        """
+        new_target = self.__new_target(center, offset=offset)
+        self.setRange(new_target, padding=0)
+        self.sigRangeChangedManually.emit(self.state['mouseEnabled'])
 
-    def _recompute_jittering_offsets(self):
-        if not self._jittering:
-            self._jittering_offsets = None
-        elif self.data:
-            # Calculate offsets randomly distributed within a circle
-            screen_size = max(100, min(qApp.desktop().screenGeometry().width(),
-                                       qApp.desktop().screenGeometry().height()))
-            n = len(self.data)
-            r = np.random.random(n)
-            theta = np.random.uniform(0, 2*np.pi, n)
-            xy_offsets = screen_size * self._jittering * np.c_[r * np.cos(theta),
-                                                               r * np.sin(theta)]
-            self._jittering_offsets = xy_offsets
+    def get_zoom(self):
+        return self.__zoom_level
 
-    def set_jittering(self, jittering):
-        """ In percent, i.e. jittering=3 means 3% of screen height and width """
-        self._jittering = jittering / 100
-        self._recompute_jittering_offsets()
-        self.redraw_markers_overlay_image(new_image=True)
+    def recalculate_zoom(self, dx: float, dy: float):
+        """
+        Calculate new zoom level to be close but smaller then needed to
+        match resolution of screen with portion of maps described by dx, dy.
+        :param dx: width in normalized coordinates
+        :param dy: height in normalized coordinates
+        """
+        if self.__tile_provider is None or not dx or not dy:
+            return
+        dx_px = self.size().width()
+        dy_px = self.size().height()
+        dx_tiles = dx_px / self.__tile_provider.size
+        dy_tiles = dy_px / self.__tile_provider.size
+        zx = int(np.floor(np.log2(dx_tiles / dx)))
+        zy = int(np.floor(np.log2(dy_tiles / dy)))
+        self.__zoom_level = self.__zoom_in_range(min(zx, zy))
+
+    def set_tile_provider(self, tp):
+        self.__tile_provider = tp
+
+    def __zoom_in_range(self, zoom):
+        """Zoom must always be in range that tile servers provide."""
+        return min(self.__tile_provider.max_zoom, max(2, zoom))
+
+    def __new_target(self, center, offset=False):
+        """Get new rectangle centered around center."""
+        dx, dy = self.__get_size()
+        left_size, up_size = 0.5, 0.5
+
+        if offset:
+            # offset target rectangle size, more natural for zooming
+            vr = self.targetRect()
+            left_size = (center.x() - vr.topLeft().x()) / vr.width()
+            up_size = (center.y() - vr.topLeft().y()) / vr.height()
+
+        tl = center + Point(-dx * left_size, -dy * up_size)
+        br = center + Point(dx * (1 - left_size), dy * (1 - up_size))
+        return QRectF(tl, br)
+
+    def __get_size(self):
+        """Get width and height in normalized coordinates that would match
+         with screen resolution."""
+        if self.__tile_provider is None:
+            return 1, 1
+        dx_px = self.size().width()
+        dy_px = self.size().height()
+        dx = dx_px / (2 ** self.__zoom_level * self.__tile_provider.size)
+        dy = dy_px / (2 ** self.__zoom_level * self.__tile_provider.size)
+        return dx, dy
+
+
+class AttributionItem(LabelItem):
+    """
+    This holds the map attribution text. It doesn't change position on scaling
+    """
+    def __init__(self, anchor=((0, 1), (0, 1)), parent=None):
+        super().__init__()
+        self.setAttr('justify', 'left')
+
+        self.item.setOpenExternalLinks(True)
+        self.item.setTextInteractionFlags(Qt.TextBrowserInteraction)
+
+        font = self.item.font()
+        font.setPointSize(7)
+        self.item.setFont(font)
+
+        self.setParentItem(parent)
+        self.anchor(*anchor)
+
+    def setHtml(self, html):
+        self.item.setHtml(html)
+        self.updateMin()
+        self.resizeEvent(None)
+        self.updateGeometry()
+
+    def paint(self, p, *_):
+        p.setPen(fn.mkPen(196, 197, 193, 200))
+        p.setBrush(fn.mkBrush(232, 232, 232, 200))
+        p.drawRect(self.itemRect())
+
+
+class OWScatterPlotMapGraph(OWScatterPlotBase):
+    """
+    Scatter plot that knows how to draw normalized coordinates on map. It
+    additionally also manages zooming and resizing so that resolution of widget
+    matches displayed images of maps.
+    """
+    show_internet_error = Signal(bool)
+
+    freeze = settings.Setting(False)
+    tile_provider_key = settings.Setting(DEFAULT_TILE_PROVIDERS)
+
+    def __init__(self, scatter_widget, parent):
+        super().__init__(scatter_widget, parent, view_box=MapViewBox)
+        self.tile_provider = TILE_PROVIDERS[self.tile_provider_key]
+
+        self.tile_attribution = AttributionItem(
+            parent=self.plot_widget.getViewBox())
+        self.tile_attribution.setHtml(self.tile_provider.attribution)
+
+        self.mem_cache = {}
+        self.map = None  # type: Image.Image
+
+        # we use a background map so transitions between zoom levels looks nicer
+        self.b_map_item = None
+        self.map_item = None
+        self.__new_map_items()
+
+        self.ts = QRect(0, 0, 1, 1)
+        self.ts_norm = QRect(0, 0, 1, 1)
+        self.tz = 1
+        self.zoom_changed = False
+
+        self.loader = ImageLoader(self)
+        self.futures = []
+
+        self.view_box.setAspectLocked(lock=True, ratio=1)
+        self.view_box.sigRangeChangedManually.connect(self.update_map)
+        self.view_box.set_tile_provider(self.tile_provider)
+
+    def _create_legend(self, anchor, brush=QBrush(QColor(232, 232, 232, 200))):
+        # by default the legend transparency was to high for colorful maps
+        legend = LegendItem(brush=brush)
+        legend.setParentItem(self.plot_widget.getViewBox())
+        legend.restoreAnchor(anchor)
+        return legend
 
     @staticmethod
-    def _legend_values(variable, values):
-        strs = [variable.repr_val(val) for val in values]
-        if any(len(val) > 10 for val in strs):
-            if isinstance(variable, TimeVariable):
-                strs = [s.replace(' ', '<br>') for s in strs]
-            elif variable.is_continuous:
-                strs = ['{:.4e}'.format(val) for val in values]
-            elif variable.is_discrete:
-                strs = [s if len(s) <= 12 else (s[:8] + '…' + s[-3:])
-                        for s in strs]
-        return strs
+    def __new_map_item(z):
+        map_item = ImageItem(autoLevels=False)
+        map_item.setOpts(axisOrder='row-major')
+        map_item.setZValue(z)
+        return map_item
 
-    def set_marker_color(self, attr, update=True):
-        try:
-            self._color_attr = variable = self.data.domain[attr]
-            if len(self.data) == 0:
-                raise Exception
-        except Exception:
-            self._color_attr = None
-            self._legend_colors = []
-        else:
-            if variable.is_continuous:
-                self._raw_color_values = values = self.data.get_column_view(variable)[0].astype(float)
-                self._scaled_color_values = scale(values)
-                self._colorgen = ContinuousPaletteGenerator(*variable.colors)
+    def __new_map_items(self):
+        if self.b_map_item is not None:
+            self.plot_widget.removeItem(self.b_map_item)
+        self.b_map_item = self.__new_map_item(-3)
+        self.plot_widget.addItem(self.b_map_item)
 
-                colors = [color_to_hex(i) for i in variable.colors[:2]]
-                if variable.colors[2]:  # pass through black
-                    colors.insert(1, 'black')
+        if self.map_item is not None:
+            self.plot_widget.removeItem(self.map_item)
+        self.map_item = self.__new_map_item(-2)
+        self.plot_widget.addItem(self.map_item)
 
-                min = np.nanmin(values)
-                self._legend_colors = (
-                    ['c', self._legend_values(variable, [min, np.nanmax(values)]), colors]
-                    if not np.isnan(min) else [])
-            elif variable.is_discrete:
-                _values = np.asarray(self.data.domain[attr].values)
+    def update_density(self):
+        """We decrease transparency to better see density on maps"""
+        super().update_density()
+        if self.density_img:
+            img = self.density_img.image
+            img[:, :, 3] = np.clip(img[:, :, 3] * 1.2, 0, 255)
+            self.density_img.setImage(img)
 
-                encoded_values = self.data.get_column_view(variable)[0]
-                is_na = np.isnan(encoded_values)
-                contains_na = np.any(is_na)
+    def update_coordinates(self):
+        super().update_coordinates()
+        if not self.freeze:
+            self.reset_map()
 
-                used_colors = variable.colors
-                num_colors = len(used_colors)
-                # Add a NA value + gray color locally (does not change attribute properties)
-                if contains_na:
-                    _values = np.append(_values, "?")
-                    used_colors = np.vstack((variable.colors, [128, 128, 128]))
+    def get_sizes(self):
+        return super().get_sizes() * 0.8
 
-                __values = encoded_values.astype(np.uint16, copy=True)
-                __values[is_na] = num_colors
-                self._raw_color_values = _values[__values]  # The joke's on you
-                _values = _values[: num_colors]
-                self._scaled_color_values = __values
-                self._colorgen = ColorPaletteGenerator(len(used_colors), used_colors)
-                self._legend_colors = ['d',
-                                       self._legend_values(variable, range(num_colors)),
-                                       list(_values),
-                                       [color_to_hex(self._colorgen.getRGB(i))
-                                        for i in range(num_colors)]]
-        finally:
-            if update:
-                self.redraw_markers_overlay_image(new_image=True)
-
-    def set_marker_label(self, attr, update=True):
-        try:
-            self._label_attr = variable = self.data.domain[attr]
-            if len(self.data) == 0:
-                raise Exception
-        except Exception:
-            self._label_attr = None
-        else:
-            if variable.is_continuous or variable.is_string:
-                self._label_values = self.data.get_column_view(variable)[0]
-            elif variable.is_discrete:
-                _values = np.asarray(self.data.domain[attr].values)
-                __values = self.data.get_column_view(variable)[0].astype(np.uint16)
-                self._label_values = _values[__values]  # The design had lead to poor code for ages
-        finally:
-            if update:
-                self.redraw_markers_overlay_image(new_image=True)
-
-    def set_marker_shape(self, attr, update=True):
-        try:
-            self._shape_attr = variable = self.data.domain[attr]
-            if len(self.data) == 0:
-                raise Exception
-        except Exception:
-            self._shape_attr = None
-            self._legend_shapes = []
-        else:
-            assert variable.is_discrete
-            _values = np.asarray(self.data.domain[attr].values)
-            self._shape_values = __values = self.data.get_column_view(variable)[0].astype(np.uint16)
-            self._raw_shape_values = _values[__values]
-            self._legend_shapes = [self._legend_values(variable, range(len(_values))),
-                                   list(_values)]
-        finally:
-            if update:
-                self.redraw_markers_overlay_image(new_image=True)
-
-    def set_marker_size(self, attr, update=True):
-        try:
-            self._size_attr = variable = self.data.domain[attr]
-            if len(self.data) == 0:
-                raise Exception
-        except Exception:
-            self._size_attr = None
-            self._legend_sizes = []
-        else:
-            assert variable.is_continuous
-            self._raw_sizes = values = self.data.get_column_view(variable)[0].astype(float)
-            # Note, [5, 60] is also hardcoded in legend-size-indicator.svg
-            self._sizes = scale(values, 5, 60).astype(np.uint8)
-            min = np.nanmin(values)
-            self._legend_sizes = self._legend_values(variable,
-                                                     [min, np.nanmax(values)]) if not np.isnan(min) else []
-        finally:
-            if update:
-                self.redraw_markers_overlay_image(new_image=True)
-
-    def set_marker_size_coefficient(self, size):
-        self._size_coef = size / 100
-        self.evalJS('''set_marker_size_coefficient({});'''.format(size / 100))
-        if not self.is_js_path:
-            self.redraw_markers_overlay_image(new_image=True)
-
-    def set_marker_opacity(self, opacity):
-        self._opacity = 255 * opacity // 100
-        self.evalJS('''set_marker_opacity({});'''.format(opacity / 100))
-        if not self.is_js_path:
-            self.redraw_markers_overlay_image(new_image=True)
-
-    def set_model(self, model):
-        self.model = model
-        self.evalJS('clear_heatmap()' if model is None else 'reset_heatmap()')
-
-    def recompute_heatmap(self, points):
-        if self.model is None or self.data is None:
-            self.exposeObject('model_predictions', {})
-            self.evalJS('draw_heatmap()')
-            return
-
-        latlons = np.array(points)
-        table = Table(Domain([self.lat_attr, self.lon_attr]), latlons)
-        try:
-            predictions = self.model(table)
-        except Exception as e:
-            self._owwidget.Error.model_error(e)
-            return
-        else:
-            self._owwidget.Error.model_error.clear()
-
-        class_var = self.model.domain.class_var
-        is_regression = class_var.is_continuous
-        if is_regression:
-            predictions = scale(np.round(predictions, 7))  # Avoid small errors
-            kwargs = dict(
-                extrema=self._legend_values(class_var, [np.nanmin(predictions),
-                                                        np.nanmax(predictions)]))
-        else:
-            colorgen = ColorPaletteGenerator(len(class_var.values), class_var.colors)
-            predictions = colorgen.getRGB(predictions)
-            kwargs = dict(
-                legend_labels=self._legend_values(class_var, range(len(class_var.values))),
-                full_labels=list(class_var.values),
-                colors=[color_to_hex(colorgen.getRGB(i))
-                        for i in range(len(class_var.values))])
-        self.exposeObject('model_predictions', dict(data=predictions, **kwargs))
-        self.evalJS('draw_heatmap()')
-
-    def _update_legend(self, is_js_path=False):
-        self.evalJS('''
-            window.legend_colors = %s;
-            window.legend_shapes = %s;
-            window.legend_sizes  = %s;
-            legendControl.remove();
-            legendControl.addTo(map);
-        ''' % (self._legend_colors,
-               self._legend_shapes if is_js_path else [],
-               self._legend_sizes))
-
-    def _update_js_markers(self, visible, in_subset):
-        self._visible = visible
-        latlon = self._latlon_data
-        self.exposeObject('latlon_data', dict(data=latlon[visible]))
-        self.exposeObject('jittering_offsets',
-                          self._jittering_offsets[visible] if self._jittering_offsets is not None else [])
-        self.exposeObject('selected_markers', dict(data=(self._selected_indices[visible]
-                                                         if self._selected_indices is not None else 0)))
-        self.exposeObject('in_subset', in_subset.astype(np.int8))
-        if not self._color_attr:
-            self.exposeObject('color_attr', dict())
-        else:
-            colors = [color_to_hex(rgb)
-                      for rgb in self._colorgen.getRGB(self._scaled_color_values[visible])]
-            self.exposeObject('color_attr',
-                              dict(name=str(self._color_attr), values=colors,
-                                   raw_values=self._raw_color_values[visible]))
-        if not self._label_attr:
-            self.exposeObject('label_attr', dict())
-        else:
-            self.exposeObject('label_attr',
-                              dict(name=str(self._label_attr),
-                                   values=self._label_values[visible]))
-        if not self._shape_attr:
-            self.exposeObject('shape_attr', dict())
-        else:
-            self.exposeObject('shape_attr',
-                              dict(name=str(self._shape_attr),
-                                   values=self._shape_values[visible],
-                                   raw_values=self._raw_shape_values[visible]))
-        if not self._size_attr:
-            self.exposeObject('size_attr', dict())
-        else:
-            self.exposeObject('size_attr',
-                              dict(name=str(self._size_attr),
-                                   values=self._sizes[visible],
-                                   raw_values=self._raw_sizes[visible]))
-        self.evalJS('''
-            window.latlon_data = latlon_data.data;
-            window.selected_markers = selected_markers.data;
-            add_markers(latlon_data);
-        ''')
-
-    class Projection:
-        """This should somewhat model Leaflet's Web Mercator (EPSG:3857).
-
-        Reverse-engineered from L.Map.latlngToContainerPoint().
+    def _reset_view(self, x_data, y_data):
         """
-        @staticmethod
-        def latlon_to_easting_northing(lat, lon):
-            R = 6378137
-            MAX_LATITUDE = 85.0511287798
-            DEG = np.pi / 180
+        This functionality is moved to reset_map which is called after
+        update_coordinates because this is not called if there is no data and
+        it also interferes with map freeze.
+        """
+        pass
 
-            lat = np.clip(lat, -MAX_LATITUDE, MAX_LATITUDE)
-            sin = np.sin(DEG * lat)
-            x = R * DEG * lon
-            y = R / 2 * np.log((1 + sin) / (1 - sin))
-            return x, y
-
-        @staticmethod
-        def easting_northing_to_pixel(x, y, zoom_level, pixel_origin, map_pane_pos):
-            R = 6378137
-            PROJ_SCALE = .5 / (np.pi * R)
-
-            zoom_scale = 256 * (2 ** zoom_level)
-            x = (zoom_scale * (PROJ_SCALE * x + .5)).round() + (map_pane_pos[0] - pixel_origin[0])
-            y = (zoom_scale * (-PROJ_SCALE * y + .5)).round() + (map_pane_pos[1] - pixel_origin[1])
-            return x, y
-
-    N_POINTS_PER_ITER = 1500
-
-    def redraw_markers_overlay_image(self, *args, new_image=False):
-        if not args and not self._drawing_args or self.data is None:
-            return
-
-        if args:
-            self._drawing_args = args
-        north, east, south, west, width, height, zoom, origin, map_pane_pos = self._drawing_args
-
-        lat, lon = self._latlon_data.T
-        visible = ((lat <= north) & (lat >= south) &
-                   (lon <= east) & (lon >= west)).nonzero()[0]
-        in_subset = (np.in1d(self.data.ids, self._subset_ids)
-                     if self._subset_ids.size else
-                     np.tile(True, len(lon)))
-
-        is_js_path = self.is_js_path = len(visible) < self.N_POINTS_PER_ITER
-
-        self._update_legend(is_js_path)
-
-        np.random.shuffle(visible)
-        # Sort points in subset to be painted last
-        visible = visible[np.lexsort((in_subset[visible],))]
-
-        if is_js_path:
-            self.evalJS('clear_markers_overlay_image()')
-            self._update_js_markers(visible, in_subset[visible])
-            self._owwidget.disable_some_controls(False)
-            return
-
-        self.evalJS('clear_markers_js();')
-        self._owwidget.disable_some_controls(True)
-
-        selected = (self._selected_indices
-                    if self._selected_indices is not None else
-                    np.zeros(len(lat), dtype=bool))
-        cur = 0
-
-        im = QImage(self._overlay_image_path)
-        if im.isNull() or self._prev_origin != origin or new_image:
-            im = QImage(width, height, QImage.Format_ARGB32)
-            im.fill(Qt.transparent)
+    def reset_map(self, match_data=True):
+        """
+        Reset what part of tha map is drawn.
+        :param match_data: if True reset so that all data is shown else just
+        update current view
+        """
+        if match_data:
+            # if we have no data then show the whole map
+            min_x, max_x, min_y, max_y = 0, 1, 0, 1
+            if self.scatterplot_item is not None:
+                x_data, y_data = self.scatterplot_item.getData()
+                if len(x_data):
+                    min_x, max_x = np.min(x_data), np.max(x_data)
+                    min_y, max_y = np.min(y_data), np.max(y_data)
         else:
-            dx, dy = self._prev_map_pane_pos - map_pane_pos
-            im = im.copy(dx, dy, width, height)
-        self._prev_map_pane_pos = np.array(map_pane_pos)
-        self._prev_origin = origin
+            [min_x, max_x], [min_y, max_y] = self.view_box.viewRange()
 
-        painter = QPainter(im)
-        painter.setRenderHint(QPainter.Antialiasing, True)
-        self.evalJS('clear_markers_overlay_image(); markersImageLayer.setBounds(map.getBounds());0')
+        if match_data:
+            self.view_box.recalculate_zoom(max_x - min_x, max_y - min_y)
 
-        self._image_token = image_token = np.random.random()
+        center = Point(min_x + (max_x - min_x) / 2,
+                       min_y + (max_y - min_y) / 2)
+        self.view_box.match_zoom(center)
 
-        n_iters = np.ceil(len(visible) / self.N_POINTS_PER_ITER)
+    def reset_button_clicked(self):
+        """Reset map so that all data is displayed"""
+        self.reset_map()
 
-        def add_points():
-            nonlocal cur, image_token
-            if image_token != self._image_token:
-                return
-            batch = visible[cur:cur + self.N_POINTS_PER_ITER]
+    def update_map(self):
+        """Get current view box to calculate which tiles to draw."""
+        [min_x, max_x], [min_y, max_y] = self.view_box.viewRange()
 
-            batch_lat = lat[batch]
-            batch_lon = lon[batch]
+        new_zoom = self.view_box.get_zoom()
+        self.zoom_changed = self.tz != new_zoom
+        self.tz = new_zoom
 
-            x, y = self.Projection.latlon_to_easting_northing(batch_lat, batch_lon)
-            x, y = self.Projection.easting_northing_to_pixel(x, y, zoom, origin, map_pane_pos)
+        # flip y to calculate edge tiles
+        tile_min_x, tile_max_y = norm2tile(min_x, 1 - min_y, self.tz)
+        tile_max_x, tile_min_y = norm2tile(max_x, 1 - max_y, self.tz)
 
-            if self._jittering:
-                dx, dy = self._jittering_offsets[batch].T
-                x, y = x + dx, y + dy
+        # round them to get edge tiles x, y
+        tile_min_x = max(int(np.floor(tile_min_x)), 0)
+        tile_min_y = max(int(np.floor(tile_min_y)), 0)
+        tile_max_x = min(int(np.ceil(tile_max_x)), 2 ** self.tz)
+        tile_max_y = min(int(np.ceil(tile_max_y)), 2 ** self.tz)
 
-            colors = (self._colorgen.getRGB(self._scaled_color_values[batch]).tolist()
-                      if self._color_attr else
-                      repeat((0xff, 0, 0)))
-            sizes = self._size_coef * \
-                (self._sizes[batch] if self._size_attr else np.tile(10, len(batch)))
+        self.ts = QRect(tile_min_x, tile_min_y,
+                        tile_max_x - tile_min_x,
+                        tile_max_y - tile_min_y)
 
-            opacity_subset, opacity_rest = self._opacity, int(.8 * self._opacity)
-            for x, y, is_selected, size, color, _in_subset in \
-                    zip(x, y, selected[batch], sizes, colors, in_subset[batch]):
+        # transform rounded tile coordinates back
+        min_edge_x, min_edge_y = tile2norm(tile_min_x, tile_min_y, self.tz)
+        max_edge_x, max_edge_y = tile2norm(tile_max_x, tile_max_y, self.tz)
 
-                pensize2, selpensize2 = (.35, 1.5) if size >= 5 else (.15, .7)
-                pensize2 *= self._size_coef
-                selpensize2 *= self._size_coef
+        # flip y back to transform map
+        min_edge_y, max_edge_y = 1 - min_edge_y, 1 - max_edge_y
 
-                size2 = size / 2
-                if is_selected:
-                    painter.setPen(QPen(QBrush(Qt.green), 2 * selpensize2))
-                    painter.drawEllipse(x - size2 - selpensize2,
-                                        y - size2 - selpensize2,
-                                        size + selpensize2,
-                                        size + selpensize2)
-                color = QColor(*color)
-                if _in_subset:
-                    color.setAlpha(opacity_subset)
-                    painter.setBrush(QBrush(color))
-                    painter.setPen(QPen(QBrush(color.darker(180)), 2 * pensize2))
+        # rectangle where to put the map into
+        self.ts_norm = QRectF(min_edge_x, min_edge_y,
+                              max_edge_x - min_edge_x,
+                              max_edge_y - min_edge_y)
+
+        self._map_z_shift()
+        self._load_new_map()
+
+    def _map_z_shift(self):
+        """If zoom changes move current map to background and draw new over it"""
+        if self.zoom_changed:
+            self.plot_widget.removeItem(self.b_map_item)
+            self.b_map_item = self.map_item
+            self.b_map_item.setZValue(-3)
+            self.map_item = self.__new_map_item(-2)
+            self.plot_widget.addItem(self.map_item)
+
+    def _load_new_map(self):
+        """Prepare tiles that are needed in new view."""
+        in_mem = []
+        to_download = []
+
+        for x in range(self.ts.width()):
+            for y in range(self.ts.height()):
+                tile = _TileItem(x=self.ts.x() + x, y=self.ts.y() + y,
+                                 z=self.tz, tile_provider=self.tile_provider)
+                if tile in self.mem_cache:
+                    in_mem.append(tile)
                 else:
-                    color.setAlpha(opacity_rest)
-                    painter.setBrush(Qt.NoBrush)
-                    painter.setPen(QPen(QBrush(color.lighter(120)), 2 * pensize2))
+                    to_download.append(tile)
 
-                painter.drawEllipse(x - size2 - pensize2,
-                                    y - size2 - pensize2,
-                                    size + pensize2,
-                                    size + pensize2)
+        self._load_from_mem(in_mem)
+        self._load_from_net(to_download)
 
-            im.save(self._overlay_image_path, 'PNG')
-            self.evalJS('markersImageLayer.setUrl("{}#{}"); 0;'
-                        .format(self.toFileURL(self._overlay_image_path),
-                                np.random.random()))
+    def _load_from_mem(self, tiles: List[_TileItem]):
+        """Create new image object to draw tiles onto it.
+        Tiles that are stored in memory are drawn immediately."""
+        self.map = Image.new('RGBA',
+                             (self.ts.width() * self.tile_provider.size,
+                              self.ts.height() * self.tile_provider.size),
+                             color="#ffffff00")
+        for t in tiles:
+            self._add_patch(t)
 
-            cur += self.N_POINTS_PER_ITER
-            if self.stop:
+        self._update_map_item()
+
+    def _add_patch(self, t):
+        """Add tile to full image."""
+        px = (t.x - self.ts.x()) * self.tile_provider.size
+        py = (t.y - self.ts.y()) * self.tile_provider.size
+        self.map.paste(self.mem_cache[t], (px, py))
+
+    def _update_map_item(self):
+        """Update ImageItem with current image."""
+        self.map_item.setImage(np.array(self.map))
+        self.map_item.setRect(self.ts_norm)
+
+    def _load_from_net(self, tiles: List[_TileItem]):
+        """Tiles that are not in memory are downloaded concurrently and are
+        added to the main image dynamically."""
+
+        if self.zoom_changed:
+            self._cancel_futures()
+            self.futures = []
+
+        for t in tiles:
+            self._load_one_from_net(t)
+
+    def _load_one_from_net(self, t: _TileItem):
+        """
+        Download a tile from the internet. For a tile if we already tried
+        to download it three times then show no internet error. If we managed
+        to get a tile from the internet clear no internet warning
+        """
+        if t.n_loadings == 3:
+            self.show_internet_error.emit(True)
+            return
+
+        future = self.loader.get(t)
+        @future.add_done_callback
+        def set_tile(_future):
+            if _future.cancelled():
                 return
-            elif cur < len(visible):
-                QTimer.singleShot(10, add_points)
-                self._owwidget.progressBarAdvance(100 / n_iters)
+
+            assert _future.done()
+
+            _tile = _future._tile
+            if _future.exception():
+                _tile.n_loadings += 1
+                # retry to download image
+                self._load_one_from_net(_tile)
             else:
-                self._owwidget.progressBarFinished()
-                self._image_token = None
+                img = _future.result()
+                if not _tile.disc_cache:
+                    self.show_internet_error.emit(False)
+                self.mem_cache[_tile] = img
+                self._add_patch(_tile)
+                self._update_map_item()
+                self.futures.remove(_future)
 
-        self._owwidget.progressBarFinished()
-        self._owwidget.progressBarInit()
-        QTimer.singleShot(10, add_points)
+        self.futures.append(future)
 
-    def set_subset_ids(self, ids):
-        self._subset_ids = ids
-        self.redraw_markers_overlay_image(new_image=True)
+    def _cancel_futures(self):
+        for future in self.futures:
+            future.cancel()
+            if future._reply is not None:
+                future._reply.close()
+                future._reply.deleteLater()
+                future._reply = None
 
-    def toggle_legend(self, visible):
-        self.evalJS('''
-            $(".legend").{0}();
-            window.legend_hidden = "{0}";
-        '''.format('show' if visible else 'hide'))
+    def update_tile_provider(self):
+        self.clear_map()
+        self.tile_provider = TILE_PROVIDERS[self.tile_provider_key]
+        self.view_box.set_tile_provider(self.tile_provider)
+        self.tile_attribution.setHtml(self.tile_provider.attribution)
+        self.update_map()
+
+    def clear_map(self):
+        self._cancel_futures()
+        self.futures = []
+        self.map = None
+        self.tz = 1
+        self.__new_map_items()
+
+    def clear(self):
+        super().clear()
+        if self.freeze:
+            # readd map items that are cleared
+            self.plot_widget.addItem(self.b_map_item)
+            self.plot_widget.addItem(self.map_item)
+        else:
+            self.clear_map()
 
 
-class OWMap(widget.OWWidget):
+class ImageLoader(QObject):
+    # Mostly a copy from OWImageViewer in imageanalytics add-on
+    #: A weakref to a QNetworkAccessManager used for image retrieval.
+    #: (we can only have one QNetworkDiskCache opened on the same
+    #: directory)
+    _NETMANAGER_REF = None
+
+    def __init__(self, parent=None):
+        QObject.__init__(self, parent)
+        assert QThread.currentThread() is QApplication.instance().thread()
+
+        netmanager = self._NETMANAGER_REF and self._NETMANAGER_REF()
+        if netmanager is None:
+            netmanager = QNetworkAccessManager()
+            cache = QNetworkDiskCache()
+            cache.setCacheDirectory(
+                os.path.join(data_dir(), "geo", __name__ + ".GeoMap.Cache")
+            )
+            netmanager.setCache(cache)
+            ImageLoader._NETMANAGER_REF = weakref.ref(netmanager)
+        self._netmanager = netmanager
+
+    def get(self, tile):
+        future = Future()
+        url = QUrl(tile.url)
+        request = QNetworkRequest(url)
+        request.setRawHeader(b"User-Agent", b"OWMap/1.0")
+        request.setAttribute(
+            QNetworkRequest.CacheLoadControlAttribute,
+            QNetworkRequest.PreferCache
+        )
+        request.setAttribute(QNetworkRequest.HTTP2AllowedAttribute, True)
+        request.setAttribute(QNetworkRequest.FollowRedirectsAttribute, True)
+        request.setMaximumRedirectsAllowed(5)
+
+        # Future yielding a QNetworkReply when finished.
+        reply = self._netmanager.get(request)
+        future._reply = reply
+        future._tile = tile
+
+        @future.add_done_callback
+        def abort_on_cancel(f):
+            # abort the network request on future.cancel()
+            if f.cancelled() and f._reply is not None:
+                f._reply.abort()
+
+        def on_reply_ready(reply, future):
+            # type: (QNetworkReply, Future) -> None
+
+            # schedule deferred delete to ensure the reply is closed
+            # otherwise we will leak file/socket descriptors
+            reply.deleteLater()
+            future._reply = None
+
+            with closing(reply):
+                if not future.set_running_or_notify_cancel():
+                    return
+
+                if reply.error() != QNetworkReply.NoError:
+                    # XXX Maybe convert the error into standard http and
+                    # urllib exceptions.
+                    future.set_exception(Exception(reply.errorString()))
+                    return
+
+                try:
+                    image = Image.open(BytesIO(reply.readAll()))
+                except Exception as e:
+                    future.set_exception(e)
+                else:
+                    tile.disc_cache = reply.attribute(
+                        QNetworkRequest.SourceIsFromCacheAttribute)
+                    future.set_result(image)
+
+        reply.finished.connect(partial(on_reply_ready, reply, future))
+        return future
+
+
+class OWMap(OWDataProjectionWidget):
+    """
+    Scatter plot visualization of coordinates data with geographic maps for
+    background.
+    """
+
     name = 'Geo Map'
     description = 'Show data points on a world map.'
     icon = "icons/GeoMap.svg"
     priority = 100
 
-    class Inputs:
-        data = Input("Data", Table, default=True)
-        data_subset = Input("Data Subset", Table)
-        learner = Input("Learner", Learner)
-
-    class Outputs:
-        selected_data = Output("Selected Data", Table, default=True)
-        annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table)
-
     replaces = [
         "Orange.widgets.visualize.owmap.OWMap",
     ]
 
-    settingsHandler = settings.DomainContextHandler()
+    settings_version = 3
 
-    want_main_area = True
+    attr_lat = settings.ContextSetting(None)
+    attr_lon = settings.ContextSetting(None)
 
-    settings_version = 2
-    autocommit = settings.Setting(True)
-    tile_provider = settings.Setting('Black and white')
-    lat_attr = settings.ContextSetting(None)
-    lon_attr = settings.ContextSetting(None)
-    class_attr = settings.ContextSetting(None)
-    color_attr = settings.ContextSetting(None)
-    label_attr = settings.ContextSetting(None)
-    shape_attr = settings.ContextSetting(None)
-    size_attr = settings.ContextSetting(None)
-    opacity = settings.Setting(100)
-    zoom = settings.Setting(100)
-    jittering = settings.Setting(0)
-    cluster_points = settings.Setting(False)
-    show_legend = settings.Setting(True)
+    GRAPH_CLASS = OWScatterPlotMapGraph
+    graph = settings.SettingProvider(OWScatterPlotMapGraph)
+    embedding_variables_names = None
 
-    TILE_PROVIDERS = OrderedDict((
-        ('Black and white', 'OpenStreetMap.BlackAndWhite'),
-        ('OpenStreetMap', 'OpenStreetMap.Mapnik'),
-        ('Topographic', 'OpenTopoMap'),
-        ('Satellite', 'Esri.WorldImagery'),
-        ('Print', 'Stamen.TonerLite'),
-        ('Dark', 'CartoDB.DarkMatter'),
-        ('Watercolor', 'Stamen.Watercolor'),
-    ))
+    class Warning(OWDataProjectionWidget.Warning):
+        missing_coords = Msg(
+            "Plot cannot be displayed because '{}' or '{}' "
+            "is missing for all data points")
+        no_continuous_vars = Msg("Data has no continuous variables")
+        no_lat_lon_vars = Msg("Data has no latitude and longitude variables.")
+        out_of_range = Msg("Points with out of range latitude or longitude are not displayed.")
+        no_internet = Msg("Cannot fetch map from the internet. "
+                          "Displaying only cached parts.")
 
-    class Error(widget.OWWidget.Error):
-        model_error = widget.Msg("Error predicting: {}")
-        learner_error = widget.Msg("Error modelling: {}")
-
-    class Warning(widget.OWWidget.Warning):
-        all_nan_slice = widget.Msg('Latitude and/or longitude has no defined values (is all-NaN)')
-
-    UserAdviceMessages = [
-        widget.Message(
-            'Select markers by holding <b><kbd>Shift</kbd></b> key and dragging '
-            'a rectangle around them. Clear the selection by clicking anywhere.',
-            'shift-selection')
-    ]
-
-    graph_name = "map"
+    class Information(OWDataProjectionWidget.Information):
+        missing_coords = Msg(
+            "Points with missing '{}' or '{}' are not displayed")
 
     def __init__(self):
         super().__init__()
-        self.map = map = LeafletMap(self)  # type: LeafletMap
-        self.mainArea.layout().addWidget(map)
-        self.selection = None
-        self.data = None
-        self.learner = None
+        self.graph.show_internet_error.connect(self._show_internet_error)
 
-        def selectionChanged(indices):
-            self.selection = self.data[indices] if self.data is not None and indices else None
-            self._indices = indices
-            self.commit()
+    def _show_internet_error(self, show):
+        if not self.Warning.no_internet.is_shown() and show:
+            self.Warning.no_internet()
+        elif self.Warning.no_internet.is_shown() and not show:
+            self.Warning.no_internet.clear()
 
-        map.selectionChanged.connect(selectionChanged)
+    def _add_controls(self):
+        self.lat_lon_model = DomainModel(DomainModel.MIXED,
+                                         valid_types=ContinuousVariable)
 
-        def _set_map_provider():
-            map.set_map_provider(self.TILE_PROVIDERS[self.tile_provider])
+        lat_lon_box = gui.vBox(self.controlArea, True)
+        options = dict(
+            labelWidth=75, orientation=Qt.Horizontal, sendSelectedValue=True,
+            valueType=str, contentsLength=14
+        )
 
-        box = gui.vBox(self.controlArea, 'Map')
-        gui.comboBox(box, self, 'tile_provider',
-                     orientation=Qt.Horizontal,
-                     label='Map:',
-                     items=tuple(self.TILE_PROVIDERS.keys()),
-                     sendSelectedValue=True,
-                     callback=_set_map_provider)
+        gui.comboBox(lat_lon_box, self, 'graph.tile_provider_key', label='Map:',
+                     items=list(TILE_PROVIDERS.keys()),
+                     callback=self.graph.update_tile_provider, **options)
 
-        self._latlon_model = DomainModel(
-            parent=self, valid_types=ContinuousVariable)
-        self._class_model = DomainModel(
-            parent=self, placeholder='(None)', valid_types=DomainModel.PRIMITIVE)
-        self._color_model = DomainModel(
-            parent=self, placeholder='(Same color)', valid_types=DomainModel.PRIMITIVE)
-        self._shape_model = DomainModel(
-            parent=self, placeholder='(Same shape)', valid_types=DiscreteVariable)
-        self._size_model = DomainModel(
-            parent=self, placeholder='(Same size)', valid_types=ContinuousVariable)
-        self._label_model = DomainModel(
-            parent=self, placeholder='(No labels)')
+        gui.comboBox(lat_lon_box, self, 'attr_lon', label='Longitude:',
+                     callback=self.setup_plot,
+                     model=self.lat_lon_model, **options)
 
-        def _set_lat_long():
-            self.map.set_data(self.data, self.lat_attr, self.lon_attr)
-            self.train_model()
+        gui.comboBox(lat_lon_box, self, 'attr_lat', label='Latitude:',
+                     callback=self.setup_plot,
+                     model=self.lat_lon_model, **options)
 
-        self._combo_lat = combo = gui.comboBox(
-            box, self, 'lat_attr', orientation=Qt.Horizontal,
-            label='Latitude:', sendSelectedValue=True, callback=_set_lat_long,
-            model=self._latlon_model)
-        self._combo_lon = combo = gui.comboBox(
-            box, self, 'lon_attr', orientation=Qt.Horizontal,
-            label='Longitude:', sendSelectedValue=True, callback=_set_lat_long,
-            model=self._latlon_model)
+        super()._add_controls()
 
-        def _toggle_legend():
-            self.map.toggle_legend(self.show_legend)
+        gui.checkBox(
+            self._plot_box, self,
+            value="graph.freeze",
+            label="Freeze map",
+            tooltip="If checked, the map won't change position to fit new data.")
 
-        gui.checkBox(box, self, 'show_legend', label='Show legend',
-                     callback=_toggle_legend)
+    def check_data(self):
+        super().check_data()
+        if self.data is not None:
+            if not self.data.domain.has_continuous_attributes(True, True):
+                self.Warning.no_continuous_vars()
+                self.data = None
 
-        box = gui.vBox(self.controlArea, 'Overlay')
-        self._combo_class = combo = gui.comboBox(
-            box, self, 'class_attr', orientation=Qt.Horizontal,
-            label='Target:', sendSelectedValue=True, callback=self.train_model,
-            model=self._class_model)
-        self.set_learner(self.learner)
+    def get_embedding(self):
+        self.valid_data = None
+        if self.data is None:
+            return None
 
-        box = gui.vBox(self.controlArea, 'Points')
-        self._combo_color = combo = gui.comboBox(
-            box, self, 'color_attr',
-            orientation=Qt.Horizontal,
-            label='Color:',
-            sendSelectedValue=True,
-            callback=lambda: self.map.set_marker_color(self.color_attr),
-            model=self._color_model)
-        self._combo_label = combo = gui.comboBox(
-            box, self, 'label_attr',
-            orientation=Qt.Horizontal,
-            label='Label:',
-            sendSelectedValue=True,
-            callback=lambda: self.map.set_marker_label(self.label_attr),
-            model=self._label_model)
-        self._combo_shape = combo = gui.comboBox(
-            box, self, 'shape_attr',
-            orientation=Qt.Horizontal,
-            label='Shape:',
-            sendSelectedValue=True,
-            callback=lambda: self.map.set_marker_shape(self.shape_attr),
-            model=self._shape_model)
-        self._combo_size = combo = gui.comboBox(
-            box, self, 'size_attr',
-            orientation=Qt.Horizontal,
-            label='Size:',
-            sendSelectedValue=True,
-            callback=lambda: self.map.set_marker_size(self.size_attr),
-            model=self._size_model)
+        lat_data = self.get_column(self.attr_lat, filter_valid=False)
+        lon_data = self.get_column(self.attr_lon, filter_valid=False)
+        if lat_data is None or lon_data is None:
+            return None
 
-        def _set_opacity():
-            map.set_marker_opacity(self.opacity)
+        self.Warning.missing_coords.clear()
+        self.Information.missing_coords.clear()
+        self.valid_data = np.isfinite(lat_data) & np.isfinite(lon_data)
+        if self.valid_data is not None and not np.all(self.valid_data):
+            msg = self.Information if np.any(self.valid_data) else self.Warning
+            msg.missing_coords(self.attr_lat.name, self.attr_lon.name)
 
-        def _set_zoom():
-            map.set_marker_size_coefficient(self.zoom)
+        in_range = (-MAX_LONGITUDE <= lon_data) & (lon_data <= MAX_LONGITUDE) &\
+                   (-MAX_LATITUDE <= lat_data) & (lat_data <= MAX_LATITUDE)
+        in_range = ~np.bitwise_xor(in_range, self.valid_data)
+        self.Warning.out_of_range.clear()
+        if in_range.sum() != len(lon_data):
+            self.Warning.out_of_range()
+        if in_range.sum() == 0:
+            return None
+        self.valid_data &= in_range
 
-        def _set_jittering():
-            map.set_jittering(self.jittering)
+        x, y = deg2norm(lon_data, lat_data)
+        # invert y to increase from bottom to top
+        y = 1 - y
+        return np.vstack((x, y)).T
 
-        def _set_clustering():
-            self._jittering.setEnabled(not self.cluster_points)
-            self._jittering.value_label.setEnabled(not self.cluster_points)
-            if self.cluster_points:
-                self._jittering.setToolTip("Jittering is disabled when 'Cluster points' is checked")
+    def init_attr_values(self):
+        super().init_attr_values()
+        self.Warning.no_lat_lon_vars.clear()
+        self.attr_lat, self.attr_lon = None, None
+        domain = self.data.domain if self.data else None
+        self.lat_lon_model.set_domain(domain)
+        if self.data:
+            attr_lat, attr_lon = find_lat_lon(self.data, filter_hidden=True)
+            if attr_lat is None or attr_lon is None:
+                # we either find both or none
+                self.Warning.no_lat_lon_vars()
             else:
-                self._jittering.setToolTip(None)
+                self.attr_lat, self.attr_lon = attr_lat, attr_lon
 
-            map.set_clustering(self.cluster_points)
+    @property
+    def effective_variables(self):
+        return [self.attr_lat, self.attr_lon] \
+            if self.attr_lat and self.attr_lon else []
 
-        self._opacity_slider = gui.hSlider(
-            box, self, 'opacity', None, 1, 100, 5,
-            label='Opacity:', labelFormat=' %d%%',
-            callback=_set_opacity)
-        self._zoom_slider = gui.valueSlider(
-            box, self, 'zoom', None, values=(20, 50, 100, 200, 300, 400, 500, 700, 1000),
-            label='Symbol size:', labelFormat=' %d%%',
-            callback=_set_zoom)
-        self._jittering = gui.valueSlider(
-            box, self, 'jittering', label='Jittering:', values=(0, .5, 1, 2, 5),
-            labelFormat=' %.1f%%', ticks=True,
-            callback=_set_jittering)
-        self._clustering_check = gui.checkBox(
-            box, self, 'cluster_points', label='Cluster points',
-            callback=_set_clustering)
+    def showEvent(self, ev):
+        super().showEvent(ev)
+        # reset the map on show event since before that we didn't know the
+        # right resolution
+        self.graph.reset_map()
 
-        gui.rubber(self.controlArea)
-        gui.auto_commit(self.controlArea, self, 'autocommit', 'Send Selection')
+    def resizeEvent(self, ev):
+        super().resizeEvent(ev)
+        # when resizing we need to constantly reset the map so that new
+        # portions are drawn
+        self.graph.reset_map(match_data=False)
 
-        QTimer.singleShot(0, _set_map_provider)
-        QTimer.singleShot(0, _toggle_legend)
-        QTimer.singleShot(0, _set_opacity)
-        QTimer.singleShot(0, _set_zoom)
-        QTimer.singleShot(0, _set_jittering)
-        QTimer.singleShot(0, _set_clustering)
-
-    autocommit = settings.Setting(True)
-
-    def onDeleteWidget(self):
-        self.map.stop = True
-        super().onDeleteWidget()
-
-    def commit(self):
-        self.Outputs.selected_data.send(self.selection)
-        self.Outputs.annotated_data.send(create_annotated_table(self.data, self._indices))
-
-    @Inputs.data
-    def set_data(self, data):
-        self.data = data
-
-        self.closeContext()
-
-        if data is None or not len(data):
-            return self.clear()
-
-        domain = data is not None and data.domain
-        for model in (self._latlon_model,
-                      self._class_model,
-                      self._color_model,
-                      self._shape_model,
-                      self._size_model,
-                      self._label_model):
-            model.set_domain(domain)
-
-        self.lat_attr, self.lon_attr = find_lat_lon(data)
-        if data.domain.class_var:
-            self.color_attr = data.domain.class_var
-
-        self.openContext(data)
-
-        self.map.set_data(self.data, self.lat_attr, self.lon_attr, redraw=False)
-        self.map.set_marker_color(self.color_attr, update=False)
-        self.map.set_marker_label(self.label_attr, update=False)
-        self.map.set_marker_shape(self.shape_attr, update=False)
-        self.map.set_marker_size(self.size_attr, update=True)
-
-    @Inputs.data_subset
-    def set_subset(self, subset):
-        self.map.set_subset_ids(subset.ids if subset is not None else np.array([]))
-
-    def handleNewSignals(self):
-        super().handleNewSignals()
-        self.train_model()
-
-    @Inputs.learner
-    def set_learner(self, learner):
-        self.learner = learner
-        self.controls.class_attr.setEnabled(learner is not None)
-        self.controls.class_attr.setToolTip(
-            'Needs a Learner input for modelling.' if learner is None else '')
-
-    def train_model(self):
-        model = None
-        self.Error.clear()
-        if self.data and self.learner and self.class_attr != '(None)':
-            domain = self.data.domain
-            if self.lat_attr and self.lon_attr and self.class_attr in domain:
-                domain = Domain([domain[self.lat_attr], domain[self.lon_attr]],
-                                [domain[self.class_attr]])  # I am retarded
-                train = Table.from_table(domain, self.data)
-                try:
-                    model = self.learner(train)
-                except Exception as e:
-                    self.Error.learner_error(e)
-        self.map.set_model(model)
-
-    def disable_some_controls(self, disabled):
-        tooltip = (
-            "Available when the zoom is close enough to have "
-            "<{} points in the viewport.".format(self.map.N_POINTS_PER_ITER)
-            if disabled else '')
-        for widget in (self._combo_label,
-                       self._combo_shape,
-                       self._clustering_check):
-            widget.setDisabled(disabled)
-            widget.setToolTip(tooltip)
-
-    def clear(self):
-        self.map.set_data(None, '', '')
-        for model in (self._latlon_model,
-                      self._class_model,
-                      self._color_model,
-                      self._shape_model,
-                      self._size_model,
-                      self._label_model):
-            model.set_domain(None)
-        self.lat_attr = self.lon_attr = self.class_attr = self.color_attr = \
-        self.label_attr = self.shape_attr = self.size_attr = None
+    @classmethod
+    def migrate_settings(cls, _settings, version):
+        if version < 3:
+            _settings["graph"] = {}
+            if "tile_provider" in _settings:
+                if _settings["tile_provider"] == "Watercolor":
+                    _settings["tile_provider"] = DEFAULT_TILE_PROVIDERS
+                _settings["graph"]["tile_provider_key"] = \
+                    _settings["tile_provider"]
+            if "opacity" in _settings:
+                _settings["graph"]["alpha_value"] = \
+                    round(_settings["opacity"] * 2.55)
+            if "zoom" in _settings:
+                _settings["graph"]["point_width"] = \
+                    round(_settings["zoom"] * 0.02)
+            if "jittering" in _settings:
+                _settings["graph"]["jitter_size"] = _settings["jittering"]
+            if "show_legend" in _settings:
+                _settings["graph"]["show_legend"] = _settings["show_legend"]
 
     @classmethod
     def migrate_context(cls, context, version):
@@ -923,24 +833,15 @@ class OWMap(widget.OWWidget):
 
                 settings.migrate_str_to_variable(context, names=attr,
                                                  none_placeholder="")
+        if version < 3:
+            settings.rename_setting(context, "lat_attr", "attr_lat")
+            settings.rename_setting(context, "lon_attr", "attr_lon")
+            settings.rename_setting(context, "color_attr", "attr_color")
+            settings.rename_setting(context, "label_attr", "attr_label")
+            settings.rename_setting(context, "shape_attr", "attr_shape")
+            settings.rename_setting(context, "size_attr", "attr_size")
 
-
-def main():
-    from AnyQt.QtWidgets import QApplication
-    from Orange.modelling import KNNLearner as Learner
-    a = QApplication([])
-
-    ow = OWMap()
-    ow.show()
-    ow.raise_()
-    data = Table("India_census_district_population")
-    ow.set_data(data)
-
-    QTimer.singleShot(10, lambda: ow.set_learner(Learner()))
-
-    ow.handleNewSignals()
-    a.exec()
-    ow.saveSettings()
 
 if __name__ == "__main__":
-    main()
+    data = Table("India_census_district_population")
+    WidgetPreview(OWMap).run(data)
