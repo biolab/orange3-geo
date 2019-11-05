@@ -1,6 +1,5 @@
 language: python
-sudo: false
-dist: trusty
+dist: xenial
 cache:
   apt: true
   pip: true
@@ -21,6 +20,7 @@ addons:
   apt:
     packages:
       - libgeos-dev
+      - libxkbcommon-x11-0  # for PyQt 5.12
 
 before_install:
   - set -e  # fail on any error
@@ -29,7 +29,7 @@ before_install:
   - git checkout json -- orangecontrib/geo/geojson/\*.json
 
 install:
-  - pip install PyQt5==5.11.*
+  - pip install pyqt5 pyqtwebengine
   - source $TRAVIS_BUILD_DIR/.travis/install_orange.sh
   - pip install pandas
   - pip install .

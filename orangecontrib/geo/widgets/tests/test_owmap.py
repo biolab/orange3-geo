@@ -1,150 +1,159 @@
-import time
-import unittest
+from unittest.mock import Mock
+
+from AnyQt.QtCore import QRectF, Qt, QRect
+
 import numpy as np
+from pyqtgraph import Point
 
-from AnyQt.QtCore import QT_VERSION
-from Orange import data
-from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
-from Orange.widgets.tests.base import WidgetTest
-from Orange.widgets.tests.utils import simulate
-from Orange.modelling import KNNLearner
-
-QT_TOO_OLD = QT_VERSION <= 0x050300
-
-try:
-    from orangecontrib.geo.widgets.owmap import OWMap
-except RuntimeError:
-    assert QT_TOO_OLD
+from Orange.data import Table,  Domain, ContinuousVariable
+from Orange.widgets.widget import OWWidget
+from Orange.widgets.settings import SettingProvider
+from Orange.widgets.utils.colorpalette import ColorPaletteGenerator, \
+    ContinuousPaletteGenerator
+from Orange.widgets.tests.base import (
+    WidgetTest, WidgetOutputsTestMixin, ProjectionWidgetTestMixin
+)
+from orangecontrib.geo.widgets.owmap import OWMap, OWScatterPlotMapGraph,\
+    TILE_PROVIDERS
 
 
-@unittest.skipIf(QT_TOO_OLD, "not supported in Qt <5.3")
-class TestOWMap(WidgetTest):
+class TestOWMap(WidgetTest, ProjectionWidgetTestMixin, WidgetOutputsTestMixin):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        np.random.seed(666)
-        cls.data = Table(Domain([ContinuousVariable('latitude'),
-                                 ContinuousVariable('longitude'),
-                                 DiscreteVariable('foo', list(map(str, range(5))))],
-                                ContinuousVariable('cls')),
-                         np.c_[np.random.random((20, 2)) * 10,
-                               np.random.randint(5, size=20)],
-                         np.random.random(20))
+        WidgetOutputsTestMixin.init(cls)
+        cls.same_input_output_domain = False
+        cls.signal_name = "Data"
+        cls.signal_data = cls.data
 
     def setUp(self):
         super().setUp()
-        self.widget = self.create_widget(OWMap)  # type: OWMap
+        self.widget = self.create_widget(OWMap)
 
-    def test_inputs(self):
-        self.send_signal(self.widget.Inputs.data, self.data)
-        self.send_signal(self.widget.Inputs.learner, KNNLearner())
-        self.widget.handleNewSignals()
-        self.assertEqual(self.widget.map.lat_attr, self.data.domain[0])
+    def test_set_data(self):
+        india_data = Table("India_census_district_population")
+        self.send_signal(self.widget.Inputs.data, india_data)
 
-    def test_latlon_detection_heuristic(self):
-        xy = np.c_[np.random.uniform(-180, 180, 100),
-                   np.random.uniform(-90, 90, 100)]
-        data = Table.from_numpy(Domain.from_numpy(xy), xy)
-        self.widget.set_data(data)
+        self.assertEqual(self.widget.attr_lat, india_data.domain[1])
+        self.assertEqual(self.widget.attr_lon, india_data.domain[2])
 
-        self.assertIn(self.widget.lat_attr, data.domain)
-        self.assertIn(self.widget.lon_attr, data.domain)
+        self.send_signal(self.widget.Inputs.data, None)
 
-    def test_projection(self):
-        lat = np.r_[-89, 0, 89]
-        lon = np.r_[-180, 0, 180]
-        easting, northing = self.widget.map.Projection.latlon_to_easting_northing(lat, lon)
-        x, y = self.widget.map.Projection.easting_northing_to_pixel(
-            easting, northing, 0, [0, 0], [0, 0])
-        np.testing.assert_equal(x, [0, 128, 256])
-        np.testing.assert_equal(y, [256, 128, 0])
+        self.assertIsNone(self.widget.attr_lat)
+        self.assertIsNone(self.widget.attr_lon)
 
-    def test_coverage(self):
-        # Due to async nature of these calls, these tests just cover
-        self.send_signal(self.widget.Inputs.data, self.data)
-        self.send_signal(self.widget.Inputs.learner, KNNLearner())
-        self.widget.class_attr = 'cls'
-        self.widget.handleNewSignals()
+    def test_out_of_range(self):
+        domain = Domain([ContinuousVariable("Lat"),
+                         ContinuousVariable("Lon")])
+        table = Table(domain,
+                      np.array([[0., 0.], [80., 200.], [180., 100.]]))
+        self.send_signal(self.widget.Inputs.data, table)
 
-        self.widget.map.fit_to_bounds()
-        self.widget.map.selected_area(90, 180, -90, -180)
-        self.widget.map.set_map_provider(next(iter(self.widget.TILE_PROVIDERS.values())))
-        self.widget.map.set_clustering(True)
-        self.widget.map.set_clustering(False)
-        self.widget.map.set_jittering(5)
-        self.widget.map.set_marker_color('latitude')
-        self.widget.map.set_marker_label('latitude')
-        self.widget.map.set_marker_shape('foo')
-        self.widget.map.set_marker_size('latitude')
-        self.process_events()
-        self.widget.map.set_marker_color(None)
-        self.widget.map.set_marker_label(None)
-        self.widget.map.set_marker_shape(None)
-        self.widget.map.set_marker_size(None)
-        self.widget.map.set_marker_size_coefficient(50)
-        self.widget.map.set_marker_opacity(20)
-        self.widget.map.recompute_heatmap(np.random.random((20, 2)))
+        self.assertTrue(self.widget.Warning.out_of_range.is_shown())
+        self.assertEqual(np.sum(self.widget.valid_data), 1)
 
-        args = [100, 100, -100, -100, 1000, 1000, 3, [-100, 100], [0, 0]]
-        self.widget.map.redraw_markers_overlay_image(*args, new_image=True)
-        # Force non-JS overlay redrawing
-        self.widget.map.N_POINTS_PER_ITER = 5
-        self.widget.map.redraw_markers_overlay_image(*args, new_image=True)
-        # pylint: disable=protected-access
-        assert (not np.isnan(self.widget.map._image_token) and
-                self.widget.map._image_token is not None)
-        self.process_events(until=lambda: self.widget.map._image_token is None)
 
-        self.widget.map.bridge.fit_to_bounds()
-        self.widget.map.bridge.selected_area(10, 20, 10, 20)
-        self.widget.map.bridge.recompute_heatmap(np.random.random((30, 2)))
-        self.widget.map.bridge.redraw_markers_overlay_image(1, 2, 3, 4, 5, 6, 7, [1, 2], [3, 4])
+class MockWidget(OWWidget):
+    name = "Mock"
+    get_coordinates_data = Mock(return_value=(None, None))
+    get_size_data = Mock(return_value=None)
+    get_shape_data = Mock(return_value=None)
+    get_color_data = Mock(return_value=None)
+    get_label_data = Mock(return_value=None)
+    get_color_labels = Mock(return_value=None)
+    get_shape_labels = Mock(return_value=None)
+    get_subset_mask = Mock(return_value=None)
+    get_tooltip = Mock(return_value="")
 
-        self.widget.clear()
+    is_continuous_color = Mock(return_value=False)
+    can_draw_density = Mock(return_value=True)
+    combined_legend = Mock(return_value=False)
+    selection_changed = Mock(return_value=None)
+    freeze = Mock(return_value=False)
 
-    def test_color_pass_black(self):
-        """
-        Do not fail when continuous variable has a color
-        gradient which passes through black.
-        GH-27
-        GH-28
-        """
-        data = Table("iris")
-        colors = data.domain.attributes[0].colors[:2] + (True, )
-        data.domain.attributes[0].colors = colors
-        self.send_signal(self.widget.Inputs.data, data)
-        cb_attr_color = self.widget.controls.color_attr
-        simulate.combobox_activate_item(cb_attr_color, data.domain.attributes[0].name)
+    GRAPH_CLASS = OWScatterPlotMapGraph
+    graph = SettingProvider(OWScatterPlotMapGraph)
 
-    def test_plot_nans_gray(self):
-        """ Test that missing values get assigned a new color """
-        x_data = np.array([
-            [13.8702458314692, 45.5157143495946, 0.0],
-            [14.5618722896744, 45.9940297351865, 1.0],
-            [13.6445001070469, 45.5258150652623, np.nan],
-            [13.7610002413114, 45.5461231622814, 0.0]
-        ])
-        domain = data.Domain(
-            [data.ContinuousVariable("lon"),
-             data.ContinuousVariable("lat"),
-             data.DiscreteVariable("cls", values=["blue", "red"])]
-        )
+    def get_palette(self):
+        if self.is_continuous_color():
+            return ContinuousPaletteGenerator(Qt.white, Qt.black, False)
+        else:
+            return ColorPaletteGenerator(12)
 
-        table1 = data.Table.from_numpy(domain, x_data)
-        self.send_signal(self.widget.Inputs.data, table1)
-        cb_attr_color = self.widget.controls.color_attr
-        simulate.combobox_activate_item(cb_attr_color, "cls")
-        self.assertTrue(len(set(self.widget.map._raw_color_values)) == 3)
 
-        table2 = data.Table.from_numpy(domain, x_data[[0, 1, 3]])
-        self.send_signal(self.widget.Inputs.data, table2)
-        self.assertTrue(len(set(self.widget.map._raw_color_values)) == 2)
+class TestOWScatterPlotMapGraph(WidgetTest):
+    def setUp(self):
+        self.xy = np.array([0.5, 0.6, 0.7]), np.array([0.6, 0.7, 0.8])
+        self.master = MockWidget()
+        self.master.get_coordinates_data = lambda: self.xy
 
-    def test_hide_jitter_clustering(self):
-        """ Test that jittering is disabled when 'Cluster points' is checked """
-        self.send_signal(self.widget.Inputs.data, self.data)
-        self.widget.controls.cluster_points.setChecked(False)
-        self.assertTrue(self.widget._jittering.isEnabled())
+        self.view_box = Mock()
+        self.view_box.viewRange.return_value = [0.1, 0.2], [0.3, 0.4]
 
-        self.widget.controls.cluster_points.setChecked(True)
-        self.assertTrue(not self.widget._jittering.isEnabled())
+        self.graph = OWScatterPlotMapGraph(self.master, None)
+        self.graph.view_box = self.view_box
+
+    def test_no_data(self):
+        self.xy = None, None
+        self.graph.reset_graph()
+        self.view_box.recalculate_zoom.assert_called_once_with(1, 1)
+        self.view_box.match_zoom.assert_called_once_with(Point(0.5, 0.5))
+
+    def test_reset_map(self):
+        self.graph.reset_graph()
+        self.view_box.recalculate_zoom.reset_mock()
+        self.view_box.match_zoom.reset_mock()
+
+        self.graph.reset_map()
+        self.view_box.recalculate_zoom.assert_called_once_with(0.7 - 0.5,
+                                                               0.8 - 0.6)
+        self.view_box.match_zoom.assert_called_once_with(Point(0.6, 0.7))
+
+        self.view_box.recalculate_zoom.reset_mock()
+        self.view_box.match_zoom.reset_mock()
+        self.graph.reset_map(match_data=False)
+        self.assertFalse(self.view_box.recalculate_zoom.called)
+        self.view_box.match_zoom.assert_called_once_with(Point(0.15, 0.35))
+
+    def test_update_map(self):
+        loader = Mock()
+        self.view_box.get_zoom.return_value = 3
+
+        self.graph.loader = loader
+        self.graph.update_map()
+
+        self.assertEqual(self.graph.tz, 3)
+        self.assertEqual(self.graph.ts, QRect(0, 4, 2, 2))
+        self.assertEqual(self.graph.ts_norm, QRectF(0.0, 0.5, 0.25, -0.25))
+        self.assertEqual(loader.get.call_count, 4)
+
+    def test_tile_provider(self):
+        self.graph.tile_provider_key = "OpenStreetMap"
+        tp = TILE_PROVIDERS["OpenStreetMap"]
+        tile_attribution = Mock()
+        self.graph.tile_attribution = tile_attribution
+        self.graph.clear_map = Mock()
+        self.graph.update_map = Mock()
+
+        self.graph.update_tile_provider()
+        self.graph.clear_map.assert_called_once()
+        self.assertEqual(self.graph.tile_provider, tp)
+        self.view_box.set_tile_provider.assert_called_once_with(tp)
+        tile_attribution.setHtml.assert_called_once_with(tp.attribution)
+        self.graph.update_map.assert_called_once()
+
+    def test_freeze(self):
+        self.graph.clear_map = Mock()
+        self.graph.reset_map = Mock()
+
+        self.graph.reset_graph()
+        self.graph.clear_map.assert_called_once()
+        self.graph.reset_map.assert_called_once()
+
+        self.graph.clear_map.reset_mock()
+        self.graph.reset_map.reset_mock()
+        self.graph.freeze = True
+        self.xy = None, None
+        self.graph.reset_graph()
+        self.graph.clear_map.assert_not_called()
+        self.graph.reset_map.assert_not_called()
