@@ -6,6 +6,10 @@ from setuptools import setup, find_packages
 
 VERSION = "0.2.5"
 
+README_FILE = path.join(path.dirname(__file__), 'README.pypi')
+LONG_DESCRIPTION = open(README_FILE).read()
+
+
 ENTRY_POINTS = {
     # Entry points that marks this package as an orange add-on. If set, addon will
     # be shown in the add-ons manager even if not published on PyPi.
@@ -53,7 +57,7 @@ if __name__ == '__main__':
         name='Orange3-Geo',
         version=VERSION,
         description="Orange add-on for dealing with geography and geo-location.",
-        long_description=open(path.join(path.dirname(__file__), 'README.md')).read(),
+        long_description=LONG_DESCRIPTION,
         license='GPL-3.0',
         packages=find_packages(),
         package_data={
