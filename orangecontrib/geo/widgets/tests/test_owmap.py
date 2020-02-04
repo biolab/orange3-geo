@@ -99,19 +99,19 @@ class TestOWScatterPlotMapGraph(WidgetTest):
         self.view_box.recalculate_zoom.assert_called_once_with(1, 1)
         self.view_box.match_zoom.assert_called_once_with(Point(0.5, 0.5))
 
-    def test_reset_map(self):
+    def test_update_view_range(self):
         self.graph.reset_graph()
         self.view_box.recalculate_zoom.reset_mock()
         self.view_box.match_zoom.reset_mock()
 
-        self.graph.reset_map()
+        self.graph.update_view_range()
         self.view_box.recalculate_zoom.assert_called_once_with(0.7 - 0.5,
                                                                0.8 - 0.6)
         self.view_box.match_zoom.assert_called_once_with(Point(0.6, 0.7))
 
         self.view_box.recalculate_zoom.reset_mock()
         self.view_box.match_zoom.reset_mock()
-        self.graph.reset_map(match_data=False)
+        self.graph.update_view_range(match_data=False)
         self.assertFalse(self.view_box.recalculate_zoom.called)
         self.view_box.match_zoom.assert_called_once_with(Point(0.15, 0.35))
 
@@ -144,16 +144,16 @@ class TestOWScatterPlotMapGraph(WidgetTest):
 
     def test_freeze(self):
         self.graph.clear_map = Mock()
-        self.graph.reset_map = Mock()
+        self.graph.update_view_range = Mock()
 
         self.graph.reset_graph()
         self.graph.clear_map.assert_called_once()
-        self.graph.reset_map.assert_called_once()
+        self.graph.update_view_range.assert_called_once()
 
         self.graph.clear_map.reset_mock()
-        self.graph.reset_map.reset_mock()
+        self.graph.update_view_range.reset_mock()
         self.graph.freeze = True
         self.xy = None, None
         self.graph.reset_graph()
         self.graph.clear_map.assert_not_called()
-        self.graph.reset_map.assert_not_called()
+        self.graph.update_view_range.assert_not_called()
