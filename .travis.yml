@@ -30,13 +30,15 @@ before_install:
 
 install:
   - pip install -U pip
+  - pip install codecov
   - pip install 'pyqt5<5.14' 'pyqtwebengine<5.14'
   - source $TRAVIS_BUILD_DIR/.travis/install_orange.sh
   - pip install pandas
   - pip install .
 
 script:
-  - catchsegv xvfb-run -a -s "-screen 0 1280x1024x24" python setup.py test
+  - XVFBARGS="-screen 0 1280x1024x24"
+  - catchsegv xvfb-run -a -s "$XVFBARGS" coverage run setup.py test
 
 after_success:
-  -
+  - codecov
