@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from AnyQt.QtCore import QRectF, Qt, QRect
+from AnyQt.QtCore import Qt
 
 import numpy as np
 from pyqtgraph import Point
@@ -13,8 +13,7 @@ from Orange.widgets.utils.colorpalette import ColorPaletteGenerator, \
 from Orange.widgets.tests.base import (
     WidgetTest, WidgetOutputsTestMixin, ProjectionWidgetTestMixin
 )
-from orangecontrib.geo.widgets.owmap import OWMap, OWScatterPlotMapGraph,\
-    TILE_PROVIDERS
+from orangecontrib.geo.widgets.owmap import OWMap, OWScatterPlotMapGraph
 
 
 class TestOWMap(WidgetTest, ProjectionWidgetTestMixin, WidgetOutputsTestMixin):
@@ -99,61 +98,34 @@ class TestOWScatterPlotMapGraph(WidgetTest):
         self.view_box.recalculate_zoom.assert_called_once_with(1, 1)
         self.view_box.match_zoom.assert_called_once_with(Point(0.5, 0.5))
 
-    def test_reset_map(self):
+    def test_update_view_range(self):
         self.graph.reset_graph()
         self.view_box.recalculate_zoom.reset_mock()
         self.view_box.match_zoom.reset_mock()
 
-        self.graph.reset_map()
+        self.graph.update_view_range()
         self.view_box.recalculate_zoom.assert_called_once_with(0.7 - 0.5,
                                                                0.8 - 0.6)
         self.view_box.match_zoom.assert_called_once_with(Point(0.6, 0.7))
 
         self.view_box.recalculate_zoom.reset_mock()
         self.view_box.match_zoom.reset_mock()
-        self.graph.reset_map(match_data=False)
+        self.graph.update_view_range(match_data=False)
         self.assertFalse(self.view_box.recalculate_zoom.called)
         self.view_box.match_zoom.assert_called_once_with(Point(0.15, 0.35))
 
-    def test_update_map(self):
-        loader = Mock()
-        self.view_box.get_zoom.return_value = 3
-
-        self.graph.loader = loader
-        self.graph.update_map()
-
-        self.assertEqual(self.graph.tz, 3)
-        self.assertEqual(self.graph.ts, QRect(0, 4, 2, 2))
-        self.assertEqual(self.graph.ts_norm, QRectF(0.0, 0.5, 0.25, -0.25))
-        self.assertEqual(loader.get.call_count, 4)
-
-    def test_tile_provider(self):
-        self.graph.tile_provider_key = "OpenStreetMap"
-        tp = TILE_PROVIDERS["OpenStreetMap"]
-        tile_attribution = Mock()
-        self.graph.tile_attribution = tile_attribution
-        self.graph.clear_map = Mock()
-        self.graph.update_map = Mock()
-
-        self.graph.update_tile_provider()
-        self.graph.clear_map.assert_called_once()
-        self.assertEqual(self.graph.tile_provider, tp)
-        self.view_box.set_tile_provider.assert_called_once_with(tp)
-        tile_attribution.setHtml.assert_called_once_with(tp.attribution)
-        self.graph.update_map.assert_called_once()
-
     def test_freeze(self):
         self.graph.clear_map = Mock()
-        self.graph.reset_map = Mock()
+        self.graph.update_view_range = Mock()
 
         self.graph.reset_graph()
         self.graph.clear_map.assert_called_once()
-        self.graph.reset_map.assert_called_once()
+        self.graph.update_view_range.assert_called_once()
 
         self.graph.clear_map.reset_mock()
-        self.graph.reset_map.reset_mock()
+        self.graph.update_view_range.reset_mock()
         self.graph.freeze = True
         self.xy = None, None
         self.graph.reset_graph()
         self.graph.clear_map.assert_not_called()
-        self.graph.reset_map.assert_not_called()
+        self.graph.update_view_range.assert_not_called()
