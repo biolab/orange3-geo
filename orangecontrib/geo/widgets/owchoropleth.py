@@ -1,96 +1,517 @@
-import os
-import logging
+import sys
+from xml.sax.saxutils import escape
+from typing import List, NamedTuple, Optional, Union, Callable
+from math import floor, log10
 
+from AnyQt.QtCore import Qt, QObject, QSize, QRectF, pyqtSignal as Signal, \
+    QPointF
+from AnyQt.QtGui import QPen, QBrush, QColor, QPolygonF, QPainter
+from AnyQt.QtWidgets import QApplication, QToolTip, QGraphicsTextItem, \
+    QGraphicsRectItem
+
+from shapely.geometry import Polygon, MultiPolygon
+from shapely.ops import transform
+import pyqtgraph as pg
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from AnyQt.QtCore import (
-    Qt, QUrl, pyqtSignal, pyqtSlot, QT_VERSION,
-    QObject, QTimer,
-)
-
+from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
+from Orange.data.util import array_equal
+from Orange.data.sql.table import SqlTable
 from Orange.misc.cache import memoize_method
-from Orange.util import color_to_hex
-from Orange.data import Table, TimeVariable, DiscreteVariable, ContinuousVariable
-from Orange.widgets import gui, widget, settings
+from Orange.statistics.util import bincount
+from Orange.preprocess.discretize import decimal_binnings, BinDefinition,\
+    time_binnings
+from Orange.widgets import gui
+from Orange.widgets.utils.annotated_data import create_annotated_table, \
+    ANNOTATED_DATA_SIGNAL_NAME, create_groups_table
+from Orange.widgets.utils.plot import OWPlotGUI
+from Orange.widgets.utils.sql import check_sql_input
+from Orange.widgets.utils.widgetpreview import WidgetPreview
 from Orange.widgets.utils.itemmodels import DomainModel
-from Orange.widgets.utils.webview import WebviewWidget
-from Orange.widgets.utils.annotated_data import create_annotated_table, ANNOTATED_DATA_SIGNAL_NAME
-from Orange.widgets.widget import Input, Output
+from Orange.widgets.utils.colorpalettes import BinnedContinuousPalette, \
+    DefaultContinuousPalette, LimitedDiscretePalette
+from Orange.widgets.widget import Input, OWWidget, Msg, Output
+from Orange.widgets.visualize.owscatterplotgraph import LegendItem, \
+    PaletteItemSample, SymbolItemSample
+from Orange.widgets.visualize.utils.plotutils import HelpEventDelegate
+from Orange.widgets.visualize.utils.widget import MAX_COLORS
+from Orange.widgets.settings import Setting, SettingProvider, rename_setting, \
+    DomainContextHandler, ContextSetting, migrate_str_to_variable
 
 from orangecontrib.geo.utils import find_lat_lon
-from orangecontrib.geo.mapper import latlon2region, ADMIN2_COUNTRIES, get_bounding_rect
+from orangecontrib.geo.mapper import latlon2region, get_shape
+from orangecontrib.geo.widgets.plotutils import MapMixin, MapViewBox, \
+    _TileProvider, deg2norm
 
 
-if QT_VERSION <= 0x050300:
-    raise RuntimeError('Choropleth widget only works with Qt 5.3+')
+CHOROPLETH_TILE_PROVIDER = _TileProvider(
+    url="http://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+    attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    size=256,
+    max_zoom=19
+)
+
+_ChoroplethRegion = NamedTuple(
+    "_ChoroplethRegion", [
+        ("id", str),
+        ("qpoly", QPolygonF),
+        ("agg_value", float),
+        ("info", dict),
+    ]
+)
 
 
-log = logging.getLogger(__name__)
+class DiscretizedScale:
+    def __init__(self, binning: BinDefinition):
+        self.binning = binning
+        self.offset = binning.start
+        if binning.width is not None:
+            self.width = binning.width
+        else:
+            self.width = binning.thresholds[1] - binning.thresholds[0]
+        self.bins = binning.nbins
+        self.decimals = max(-floor(log10(self.width)), 0)
+
+    def get_bins(self):
+        return self.binning.thresholds
 
 
-# Test that memoize_method exposes cache_clear(), avoid otherwise
-# https://github.com/biolab/orange3/pull/2229
-if not hasattr(memoize_method(1)(int), 'cache_clear'):
-    memoize_method = lambda x: (lambda x: x)
+class ChoroplethItem(pg.GraphicsObject):
+    """
+    GraphicsObject that is a polygon that represents part of region.
+    Regions can consist of multiple disjoint polygons so they are represented
+    with multiple ChoroplethItem.
+    """
+
+    itemClicked = Signal(str)  # send region id
+
+    def __init__(self, region: _ChoroplethRegion, pen: QPen, brush: QBrush):
+        pg.GraphicsObject.__init__(self)
+        self.region = region
+        self.pen = pen
+        self.brush = brush
+        self.tooltip_text = self._tooltip(self.region)
+
+    @staticmethod
+    def _tooltip(region: _ChoroplethRegion):
+        agg_text = f"<b>Agg. value = {region.agg_value}</b><hr/>"
+        region_text = "<br/>".join(escape('{} = {}'.format(k, v))
+                                   for k, v in region.info.items())
+        return agg_text + "<b>Region info:</b><br/>" + region_text
+
+    def setPen(self, pen):
+        self.pen = pen
+        self.update()
+
+    def setBrush(self, brush):
+        self.brush = brush
+        self.update()
+
+    def paint(self, p: QPainter, *args):
+        p.setBrush(self.brush)
+        p.setPen(self.pen)
+        p.drawPolygon(self.region.qpoly)
+
+    def boundingRect(self) -> QRectF:
+        return self.region.qpoly.boundingRect()
+
+    def contains(self, point: QPointF) -> bool:
+        return self.region.qpoly.containsPoint(point, Qt.OddEvenFill)
+
+    def intersects(self, poly: QPolygonF) -> bool:
+        return not self.region.qpoly.intersected(poly).isEmpty()
+
+    def mouseClickEvent(self, ev):
+        if ev.button() == Qt.LeftButton and self.contains(ev.pos()):
+            self.itemClicked.emit(self.region.id)
+            ev.accept()
+        else:
+            ev.ignore()
 
 
-class LeafletChoropleth(WebviewWidget):
-    selectionChanged = pyqtSignal(list)
+class OWChoroplethPlotGraph(gui.OWComponent, QObject):
+    """
+    Main class containing functionality for piloting `ChoroplethItem`.
+    It is wary similar to `OWScatterPlotBase`. In fact some functionality
+    is directly copied from there.
+    """
 
-    def __init__(self, parent=None):
+    alpha_value = Setting(128)
+    show_legend = Setting(True)
 
-        class Bridge(QObject):
-            @pyqtSlot()
-            def fit_to_bounds(_):
-                return self.fit_to_bounds()
+    def __init__(self, widget, parent=None):
+        QObject.__init__(self)
+        gui.OWComponent.__init__(self, widget)
 
-            @pyqtSlot('QVariantList')
-            def selection(_, selected):
-                self.selectionChanged.emit(selected)
+        self.view_box = MapViewBox(self)
+        self.plot_widget = pg.PlotWidget(viewBox=self.view_box, parent=parent,
+                                         background="w")
+        self.plot_widget.hideAxis("left")
+        self.plot_widget.hideAxis("bottom")
+        self.plot_widget.getPlotItem().buttonsHidden = True
+        self.plot_widget.setAntialiasing(True)
+        self.plot_widget.sizeHint = lambda: QSize(500, 500)
 
-        super().__init__(parent,
-                         bridge=Bridge(),
-                         url=QUrl(self.toFileURL(
-                             os.path.join(os.path.dirname(__file__), '_leaflet', 'owchoropleth.html'))))
-        self._owwidget = parent
-        self.bounds = None
+        self.master = widget  # type: OWChoropleth
+        self._create_drag_tooltip(self.plot_widget.scene())
 
-    def fit_to_bounds(self):
-        if self.bounds is None:
+        self.choropleth_items = []  # type: List[ChoroplethItem]
+
+        self.n_ids = 0
+        self.selection = None  # np.ndarray
+
+        self.palette = None
+        self.scale = None  # DiscretizedScale
+        self.color_legend = self._create_legend(((1, 1), (1, 1)))
+        self.update_legend_visibility()
+
+        self._tooltip_delegate = HelpEventDelegate(self.help_event)
+        self.plot_widget.scene().installEventFilter(self._tooltip_delegate)
+
+    def _create_legend(self, anchor):
+        legend = LegendItem()
+        legend.setParentItem(self.plot_widget.getViewBox())
+        legend.restoreAnchor(anchor)
+        return legend
+
+    def _create_drag_tooltip(self, scene):
+        tip_parts = [
+            (Qt.ShiftModifier, "Shift: Add group"),
+            (Qt.ShiftModifier + Qt.ControlModifier,
+             "Shift-{}: Append to group".
+             format("Cmd" if sys.platform == "darwin" else "Ctrl")),
+            (Qt.AltModifier, "Alt: Remove")
+        ]
+        all_parts = ", ".join(part for _, part in tip_parts)
+        self.tiptexts = {
+            int(modifier): all_parts.replace(part, "<b>{}</b>".format(part))
+            for modifier, part in tip_parts
+        }
+        self.tiptexts[0] = all_parts
+
+        self.tip_textitem = text = QGraphicsTextItem()
+        # Set to the longest text
+        text.setHtml(self.tiptexts[Qt.ShiftModifier + Qt.ControlModifier])
+        text.setPos(4, 2)
+        r = text.boundingRect()
+        rect = QGraphicsRectItem(0, 0, r.width() + 8, r.height() + 4)
+        rect.setBrush(QColor(224, 224, 224, 212))
+        rect.setPen(QPen(Qt.NoPen))
+        self.update_tooltip()
+
+        scene.drag_tooltip = scene.createItemGroup([rect, text])
+        scene.drag_tooltip.hide()
+
+    def update_tooltip(self, modifiers=Qt.NoModifier):
+        modifiers &= Qt.ShiftModifier + Qt.ControlModifier + Qt.AltModifier
+        text = self.tiptexts.get(int(modifiers), self.tiptexts[0])
+        self.tip_textitem.setHtml(text)
+
+    def clear(self):
+        self.plot_widget.clear()
+        self.color_legend.clear()
+        self.update_legend_visibility()
+        self.choropleth_items = []
+        self.n_ids = 0
+        self.selection = None
+
+    def reset_graph(self):
+        """Reset plot on data change."""
+        self.clear()
+        self.selection = None
+        self.update_choropleth()
+        self.update_colors()
+
+    def update_choropleth(self):
+        """Draw new polygons."""
+        pen = self._make_pen(QColor(Qt.white), 1)
+        brush = QBrush(Qt.NoBrush)
+        for region in self.master.get_choropleth_regions():
+            choropleth_item = ChoroplethItem(region, pen=pen, brush=brush)
+            choropleth_item.itemClicked.connect(self.select_by_id)
+            self.plot_widget.addItem(choropleth_item)
+            self.choropleth_items.append(choropleth_item)
+
+        if self.choropleth_items:
+            self.n_ids = len(self.master.region_ids)
+
+    def update_colors(self):
+        """Update inner color of existing polygons."""
+        if not self.choropleth_items:
             return
-        east, south, west, north = self.bounds
-        maxzoom = 5 if self._owwidget.admin == 0 else 7
-        self.evalJS('''
-            map.flyToBounds([[%f, %f], [%f, %f]], {
-                padding: [0,0], minZoom: 2, maxZoom: %d,
-                duration: .6, easeLinearity: .4
-            });''' % (north, west, south, east, maxzoom))
 
-    def set_opacity(self, opacity):
-        self.evalJS('''set_opacity(%f);''' % (opacity / 100))
+        brushes = self.get_colors()
+        rid2brush = {rid: b
+                     for rid, b in zip(self.master.region_ids, brushes)}
+        for ci in self.choropleth_items:
+            ci.setBrush(rid2brush[ci.region.id])
+        self.update_legends()
 
-    def set_quantization(self, quantization):
-        self.evalJS('''set_quantization("%s");''' % (quantization[0].lower()))
+    def get_colors(self):
+        self.palette = self.master.get_palette()
+        c_data = self.master.get_color_data()
+        if c_data is None:
+            self.palette = None
+            return []
+        elif self.master.is_mode():
+            return self._get_discrete_colors(c_data)
+        else:
+            return self._get_continuous_colors(c_data)
 
-    def set_color_steps(self, steps):
-        self.evalJS('''set_color_steps(%d);''' % steps)
+    def _get_continuous_colors(self, c_data):
+        palette = self.master.get_palette()
+        self.scale = DiscretizedScale(self.master.get_binning())
+        bins = self.scale.get_bins()
+        self.palette = BinnedContinuousPalette.from_palette(palette, bins)
+        rgb = self.palette.values_to_colors(c_data)
+        rgba = np.hstack(
+            [rgb, np.full((len(rgb), 1), self.alpha_value, dtype=np.ubyte)])
 
-    def toggle_legend(self, visible):
-        self.evalJS('''toggle_legend(%d);''' % (int(bool(visible))))
+        return [QBrush(QColor(*col)) for col in rgba]
 
-    def toggle_map_labels(self, visible):
-        self.evalJS('''toggle_map_labels(%d);''' % (int(bool(visible))))
+    def _get_discrete_colors(self, c_data):
+        self.palette = self.master.get_palette()
+        c_data = c_data.copy()
+        c_data[np.isnan(c_data)] = len(self.palette)
+        c_data = c_data.astype(int)
+        colors = self.palette.qcolors_w_nan
+        for col in colors:
+            col.setAlpha(self.alpha_value)
+        brushes = np.array([QBrush(col) for col in colors])
+        return brushes[c_data]
 
-    def toggle_tooltip_details(self, visible):
-        self.evalJS('''toggle_tooltip_details(%d);''' % (int(bool(visible))))
+    def update_legends(self):
+        color_labels = self.master.get_color_labels()
+        self.color_legend.clear()
+        if self.master.is_mode():
+            self._update_color_legend(color_labels)
+        else:
+            self._update_continuous_color_legend(color_labels)
+        self.update_legend_visibility()
 
-    def preset_region_selection(self, selection):
-        self.evalJS('''set_region_selection(%s);''' % selection)
+    def _update_continuous_color_legend(self, label_formatter):
+        if self.scale is None:
+            return
+        label = PaletteItemSample(self.palette, self.scale, label_formatter)
+        self.color_legend.addItem(label, "")
+        self.color_legend.setGeometry(label.boundingRect())
+
+    def _update_color_legend(self, labels):
+        symbols = ['o' for _ in range(len(labels))]
+        colors = self.palette.values_to_colors(np.arange(len(labels)))
+        for color, label, symbol in zip(colors, labels, symbols):
+            color = QColor(*color)
+            pen = self._make_pen(color.darker(120), 1.5)
+            color.setAlpha(self.alpha_value)
+            brush = QBrush(color)
+            sis = SymbolItemSample(pen=pen, brush=brush, size=10, symbol=symbol)
+            self.color_legend.addItem(sis, escape(label))
+
+    def update_legend_visibility(self):
+        self.color_legend.setVisible(
+            self.show_legend and bool(self.color_legend.items))
+
+    def update_selection_colors(self):
+        """
+        Update color of selected regions.
+        """
+        pens = self.get_colors_sel()
+        rid2pen = {rid: pen for rid, pen in zip(self.master.region_ids, pens)}
+        for ci in self.choropleth_items:
+            ci.setPen(rid2pen[ci.region.id])
+
+    def get_colors_sel(self):
+        white_pen = self._make_pen(QColor(Qt.white), 1)
+        if self.selection is None:
+            pen = [white_pen] * self.n_ids
+        else:
+            sels = np.max(self.selection)
+            if sels == 1:
+                orange_pen = self._make_pen(QColor(255, 190, 0, 255), 3)
+                pen = np.where(self.selection, orange_pen, white_pen)
+            else:
+                palette = LimitedDiscretePalette(number_of_colors=sels + 1)
+                pens = [white_pen] + [self._make_pen(palette[i], 3)
+                                      for i in range(sels)]
+                pen = np.choose(self.selection, pens)
+        return pen
+
+    @staticmethod
+    def _make_pen(color, width):
+        p = QPen(color, width)
+        p.setCosmetic(True)
+        return p
+
+    def zoom_button_clicked(self):
+        self.plot_widget.getViewBox().setMouseMode(
+            self.plot_widget.getViewBox().RectMode)
+
+    def pan_button_clicked(self):
+        self.plot_widget.getViewBox().setMouseMode(
+            self.plot_widget.getViewBox().PanMode)
+
+    def select_button_clicked(self):
+        self.plot_widget.getViewBox().setMouseMode(
+            self.plot_widget.getViewBox().RectMode)
+
+    def select_by_id(self, region_id):
+        """
+        This is called by a `ChoroplethItem` on click.
+        The selection is then based on the corresponding region.
+        """
+        indices = np.where(self.master.region_ids == region_id)[0]
+        self.select_by_indices(indices)
+
+    def select_by_rectangle(self, rect: QRectF):
+        """
+        Find polygons that intersect with selected rectangle and select all
+        corresponding regions.
+        """
+        poly_rect = QPolygonF(rect)
+        indices = set()
+        for ci in self.choropleth_items:
+            if ci.intersects(poly_rect):
+                indices.add(np.where(self.master.region_ids == ci.region.id)[0][0])
+        if indices:
+            self.select_by_indices(np.array(list(indices)))
+
+    def unselect_all(self):
+        if self.selection is not None:
+            self.selection = None
+            self.update_selection_colors()
+            self.master.selection_changed()
+
+    def select_by_indices(self, indices):
+        if self.selection is None:
+            self.selection = np.zeros(self.n_ids, dtype=np.uint8)
+        keys = QApplication.keyboardModifiers()
+        if keys & Qt.AltModifier:
+            self.selection_remove(indices)
+        elif keys & Qt.ShiftModifier and keys & Qt.ControlModifier:
+            self.selection_append(indices)
+        elif keys & Qt.ShiftModifier:
+            self.selection_new_group(indices)
+        else:
+            self.selection_select(indices)
+
+    def selection_select(self, indices):
+        self.selection = np.zeros(self.n_ids, dtype=np.uint8)
+        self.selection[indices] = 1
+        self._update_after_selection()
+
+    def selection_append(self, indices):
+        self.selection[indices] = np.max(self.selection)
+        self._update_after_selection()
+
+    def selection_new_group(self, indices):
+        self.selection[indices] = np.max(self.selection) + 1
+        self._update_after_selection()
+
+    def selection_remove(self, indices):
+        self.selection[indices] = 0
+        self._update_after_selection()
+
+    def _update_after_selection(self):
+        self._compress_indices()
+        self.update_selection_colors()
+        self.master.selection_changed()
+
+    def _compress_indices(self):
+        indices = sorted(set(self.selection) | {0})
+        if len(indices) == max(indices) + 1:
+            return
+        mapping = np.zeros((max(indices) + 1,), dtype=int)
+        for i, ind in enumerate(indices):
+            mapping[ind] = i
+        self.selection = mapping[self.selection]
+
+    def get_selection(self):
+        if self.selection is None:
+            return np.zeros(self.n_ids, dtype=np.uint8)
+        else:
+            return self.selection
+
+    def help_event(self, event):
+        """Tooltip"""
+        if not self.choropleth_items:
+            return False
+        act_pos = self.choropleth_items[0].mapFromScene(event.scenePos())
+        ci = next((ci for ci in self.choropleth_items
+                   if ci.contains(act_pos)), None)
+        if ci is not None:
+            QToolTip.showText(event.screenPos(), ci.tooltip_text,
+                              widget=self.plot_widget)
+            return True
+        else:
+            return False
 
 
-class OWChoropleth(widget.OWWidget):
+class OWChoroplethPlotMapGraph(MapMixin, OWChoroplethPlotGraph):
+    """
+    This just adds maps as background.
+    """
+
+    def __init__(self, widget, parent):
+        OWChoroplethPlotGraph.__init__(self, widget, parent)
+        MapMixin.__init__(self)
+        self._update_tile_provider(CHOROPLETH_TILE_PROVIDER)
+
+    def update_view_range(self, match_data=True):
+        if match_data:
+            min_x, max_x, min_y, max_y = 0, 1, 0, 1
+            if self.choropleth_items:
+                # find bounding rect off all ChoroplethItems
+                rect = self.choropleth_items[0].boundingRect()
+                for ci in self.choropleth_items[1:]:
+                    rect = rect.united(ci.boundingRect())
+                min_x, min_y = rect.x(), rect.y()
+                max_x, max_y = rect.x() + rect.width(), rect.y() + rect.height()
+        else:
+            [min_x, max_x], [min_y, max_y] = self.view_box.viewRange()
+
+        self._update_view_range(min_x, max_x, min_y, max_y, not match_data)
+
+    def clear(self):
+        super().clear()
+        self.clear_map()
+
+    def reset_button_clicked(self):
+        """Reset map so that all items are displayed."""
+        self.update_view_range()
+
+    def update_choropleth(self):
+        """When redrawing polygons update view."""
+        super().update_choropleth()
+        self.update_view_range()
+
+
+AggDesc = NamedTuple("AggDesc", [("transform", Union[str, Callable]),
+                                 ("disc", bool), ("time", bool)])
+
+AGG_FUNCS = {
+    'Count': AggDesc("size", True, True),
+    'Count defined': AggDesc("count", True, True),
+    'Sum': AggDesc("sum", False, False),
+    'Mean': AggDesc("mean", False, True),
+    'Median': AggDesc("median", False, True),
+    'Mode': AggDesc(lambda x: stats.mode(x, nan_policy='omit').mode[0],
+                    True, True),
+    'Maximal': AggDesc("max", False, True),
+    'Minimal': AggDesc("min", False, True),
+    'Std.': AggDesc("std", False, False)
+}
+
+DEFAULT_AGG_FUNC = list(AGG_FUNCS)[0]
+
+
+class OWChoropleth(OWWidget):
+    """
+    This is to `OWDataProjectionWidget` what
+    `OWChoroplethPlotGraph` is to `OWScatterPlotBase`.
+    """
+
     name = 'Choropleth Map'
     description = 'A thematic map in which areas are shaded in proportion ' \
                   'to the measurement of the statistical variable being displayed.'
@@ -104,301 +525,490 @@ class OWChoropleth(widget.OWWidget):
         selected_data = Output("Selected Data", Table, default=True)
         annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table)
 
-    settingsHandler = settings.DomainContextHandler()
+    settings_version = 2
+    settingsHandler = DomainContextHandler()
+    selection = Setting(None, schema_only=True)
+    auto_commit = Setting(True)
 
-    want_main_area = True
+    attr_lat = ContextSetting(None)
+    attr_lon = ContextSetting(None)
 
-    AGG_FUNCS = (
-        'Count',
-        'Count defined',
-        'Sum',
-        'Mean',
-        'Median',
-        'Mode',
-        'Max',
-        'Min',
-        'Std',
-    )
-    AGG_FUNCS_TRANSFORM = {
-        'Count': 'size',
-        'Count defined': 'count',
-        'Mode': lambda x: stats.mode(x, nan_policy='omit').mode[0],
-    }
-    AGG_FUNCS_DISCRETE = ('Count', 'Count defined', 'Mode')
-    AGG_FUNCS_CANT_TIME = ('Count', 'Count defined', 'Sum', 'Std')
+    agg_attr = ContextSetting(None)
+    agg_func = ContextSetting(DEFAULT_AGG_FUNC)
+    admin_level = Setting(0)
+    binning_index = Setting(0)
 
-    autocommit = settings.Setting(True)
-    lat_attr = settings.ContextSetting('')
-    lon_attr = settings.ContextSetting('')
-    attr = settings.ContextSetting('')
-    agg_func = settings.ContextSetting(AGG_FUNCS[0])
-    admin = settings.Setting(0)
-    opacity = settings.Setting(70)
-    color_steps = settings.Setting(5)
-    color_quantization = settings.Setting('equidistant')
-    show_labels = settings.Setting(True)
-    show_legend = settings.Setting(True)
-    show_details = settings.Setting(True)
-    selection = settings.ContextSetting([])
+    GRAPH_CLASS = OWChoroplethPlotMapGraph
+    graph = SettingProvider(OWChoroplethPlotMapGraph)
+    graph_name = "graph.plot_widget.plotItem"
 
-    class Error(widget.OWWidget.Error):
-        aggregation_discrete = widget.Msg("Only certain types of aggregation defined on categorical attributes: {}")
+    input_changed = Signal(object)
+    output_changed = Signal(object)
 
-    class Warning(widget.OWWidget.Warning):
-        logarithmic_nonpositive = widget.Msg("Logarithmic quantization requires all values > 0. Using 'equidistant' quantization instead.")
-
-    graph_name = "map"
+    class Warning(OWWidget.Warning):
+        no_lat_lon_vars = Msg("Data has no latitude and longitude variables.")
+        no_region = Msg("{} points are not in any region.")
 
     def __init__(self):
         super().__init__()
-        self.map = map = LeafletChoropleth(self)
-        self.mainArea.layout().addWidget(map)
-        self.selection = []
         self.data = None
-        self.latlon = None
-        self.result_min_nonpositive = False
-        self._should_fit_bounds = False
+        self.data_ids = None  # type: Optional[np.ndarray]
 
-        def selectionChanged(selection):
-            self._indices = self.ids.isin(selection).nonzero()[0]
-            self.selection = selection
-            self.commit()
+        self.agg_data = None  # type: Optional[np.ndarray]
+        self.region_ids = None  # type: Optional[np.ndarray]
 
-        map.selectionChanged.connect(selectionChanged)
+        self.choropleth_regions = []
+        self.binnings = []
 
-        box = gui.vBox(self.controlArea, 'Aggregation')
+        self.input_changed.connect(self.set_input_summary)
+        self.output_changed.connect(self.set_output_summary)
+        self.setup_gui()
 
-        self._latlon_model = DomainModel(parent=self, valid_types=ContinuousVariable)
-        self._combo_lat = combo = gui.comboBox(
-            box, self, 'lat_attr', orientation=Qt.Horizontal,
-            label='Latitude:', sendSelectedValue=True, callback=self.aggregate)
-        combo.setModel(self._latlon_model)
+    def setup_gui(self):
+        self._add_graph()
+        self._add_controls()
+        self.input_changed.emit(None)
+        self.output_changed.emit(None)
 
-        self._combo_lon = combo = gui.comboBox(
-            box, self, 'lon_attr', orientation=Qt.Horizontal,
-            label='Longitude:', sendSelectedValue=True, callback=self.aggregate)
-        combo.setModel(self._latlon_model)
+    def _add_graph(self):
+        box = gui.vBox(self.mainArea, True, margin=0)
+        self.graph = self.GRAPH_CLASS(self, box)
+        box.layout().addWidget(self.graph.plot_widget)
 
-        self._combo_attr = combo = gui.comboBox(
-            box, self, 'attr', orientation=Qt.Horizontal,
-            label='Attribute:', sendSelectedValue=True, callback=self.aggregate)
-        combo.setModel(DomainModel(parent=self, valid_types=(ContinuousVariable, DiscreteVariable)))
+    def _add_controls(self):
+        options = dict(
+            labelWidth=75, orientation=Qt.Horizontal, sendSelectedValue=True,
+            contentsLength=14
+        )
 
-        gui.comboBox(
-            box, self, 'agg_func', orientation=Qt.Horizontal, items=self.AGG_FUNCS,
-            label='Aggregation:', sendSelectedValue=True, callback=self.aggregate)
+        lat_lon_box = gui.vBox(self.controlArea, True)
+        self.lat_lon_model = DomainModel(DomainModel.MIXED,
+                                         valid_types=(ContinuousVariable,))
+        gui.comboBox(lat_lon_box, self, 'attr_lon', label='Longitude:',
+                     callback=self.setup_plot, model=self.lat_lon_model,
+                     **options)
 
-        self._detail_slider = gui.hSlider(
-            box, self, 'admin', None, 0, 2, 1,
-            label='Administrative level:', labelFormat=' %d',
-            callback=self.aggregate)
+        gui.comboBox(lat_lon_box, self, 'attr_lat', label='Latitude:',
+                     callback=self.setup_plot, model=self.lat_lon_model,
+                     **options)
 
-        box = gui.vBox(self.controlArea, 'Visualization')
+        agg_box = gui.vBox(self.controlArea, True)
+        self.agg_attr_model = DomainModel(valid_types=(ContinuousVariable,
+                                                       DiscreteVariable))
+        gui.comboBox(agg_box, self, 'agg_attr', label='Attribute:',
+                     callback=self.update_agg, model=self.agg_attr_model,
+                     **options)
 
-        gui.spin(box, self, 'color_steps', 3, 15, 1, label='Color steps:',
-                 callback=lambda: self.map.set_color_steps(self.color_steps))
+        self.agg_func_combo = gui.comboBox(agg_box, self, 'agg_func',
+                                           label='Agg.:', items=list(AGG_FUNCS),
+                                           callback=self.setup_plot,
+                                           **options)
 
-        def _set_quantization():
-            self.Warning.logarithmic_nonpositive(
-                shown=(self.color_quantization.startswith('log') and
-                       self.result_min_nonpositive))
-            self.map.set_quantization(self.color_quantization)
+        a_slider = gui.hSlider(agg_box, self, 'admin_level', minValue=0,
+                               maxValue=2, step=1, label='Detail:',
+                               createLabel=False, callback=self.setup_plot)
+        a_slider.setFixedWidth(176)
 
-        gui.comboBox(box, self, 'color_quantization', label='Color quantization:',
-                     orientation=Qt.Horizontal, sendSelectedValue=True,
-                     items=('equidistant', 'logarithmic', 'quantile', 'k-means'),
-                     callback=_set_quantization)
+        visualization_box = gui.vBox(self.controlArea, True)
+        b_slider = gui.hSlider(visualization_box, self, "binning_index",
+                               label="Bin width:", minValue=0,
+                               maxValue=max(1, len(self.binnings) - 1),
+                               createLabel=False, callback=self.colors_changed)
+        b_slider.setFixedWidth(176)
 
-        self._opacity_slider = gui.hSlider(
-            box, self, 'opacity', None, 20, 100, 5,
-            label='Opacity:', labelFormat=' %d%%',
-            callback=lambda: self.map.set_opacity(self.opacity))
+        av_slider = gui.hSlider(visualization_box, self, "graph.alpha_value",
+                                minValue=0, maxValue=255, step=10,
+                                label="Opacity:", createLabel=False,
+                                callback=self.colors_changed)
+        av_slider.setFixedWidth(176)
 
-        gui.checkBox(box, self, 'show_legend', label='Show legend',
-                     callback=lambda: self.map.toggle_legend(self.show_legend))
-        gui.checkBox(box, self, 'show_labels', label='Show map labels',
-                     callback=lambda: self.map.toggle_map_labels(self.show_labels))
-        gui.checkBox(box, self, 'show_details', label='Show region details in tooltip',
-                     callback=lambda: self.map.toggle_tooltip_details(self.show_details))
+        gui.checkBox(visualization_box, self, "graph.show_legend",
+                     "Show legend",
+                     callback=self.graph.update_legend_visibility)
 
-        gui.rubber(self.controlArea)
-        gui.auto_commit(self.controlArea, self, 'autocommit', 'Send Selection')
+        self.controlArea.layout().addStretch(100)
 
-        self.map.toggle_legend(self.show_legend)
-        self.map.toggle_map_labels(self.show_labels)
-        self.map.toggle_tooltip_details(self.show_details)
-        self.map.set_quantization(self.color_quantization)
-        self.map.set_color_steps(self.color_steps)
-        self.map.set_opacity(self.opacity)
+        plot_gui = OWPlotGUI(self)
+        plot_gui.box_zoom_select(self.controlArea)
+        gui.auto_send(self.controlArea, self, "auto_commit")
 
-    def __del__(self):
-        self.map = None
+    @property
+    def effective_variables(self):
+        return [self.attr_lat, self.attr_lon] \
+            if self.attr_lat and self.attr_lon else []
 
-    def commit(self):
-        if self.data is not None and self.selection:
-            selected_data = self.data[self._indices]
-            annotated_data = create_annotated_table(self.data, self._indices)
-        else:
-            selected_data = annotated_data = None
+    @property
+    def effective_data(self):
+        return self.data.transform(Domain(self.effective_variables))
 
-        self.Outputs.selected_data.send(selected_data)
-        self.Outputs.annotated_data.send(annotated_data)
-
+    # Input
     @Inputs.data
+    @check_sql_input
     def set_data(self, data):
-        self.data = data
+        data_existed = self.data is not None
+        effective_data = self.effective_data if data_existed else None
 
         self.closeContext()
+        self.data = data
+        self.agg_func = DEFAULT_AGG_FUNC
+        self.Warning.no_region.clear()
+        self.Warning.no_lat_lon_vars.clear()
+        self.init_attr_values()
+        self.openContext(self.data)
 
+        if not (data_existed and self.data is not None and
+                array_equal(effective_data.X, self.effective_data.X)):
+            self.clear(cache=True)
+            self.graph.clear()
+            self.input_changed.emit(data)
+        self.update_agg()
+        self.apply_selection()
+        self.unconditional_commit()
+
+    def init_attr_values(self):
+        domain = self.data.domain if self.data else None
+        self.lat_lon_model.set_domain(domain)
+        self.agg_attr_model.set_domain(domain)
+
+        self.agg_attr = None
+        self.attr_lat, self.attr_lon = None, None
+
+        if self.data:
+            self.agg_attr = self.data.domain.class_var
+            attr_lat, attr_lon = find_lat_lon(self.data, filter_hidden=True)
+            if attr_lat is None or attr_lon is None:
+                # we either find both or none
+                self.Warning.no_lat_lon_vars()
+            else:
+                self.attr_lat, self.attr_lon = attr_lat, attr_lon
+
+    def set_input_summary(self, data):
+        summary = str(len(data)) if data else self.info.NoInput
+        self.info.set_input_summary(summary)
+
+    def set_output_summary(self, data):
+        summary = str(len(data)) if data else self.info.NoOutput
+        self.info.set_output_summary(summary)
+
+    def update_agg(self):
+        current_agg = self.agg_func
+        self.agg_func_combo.clear()
+        new_aggs = list(AGG_FUNCS)
+
+        if self.agg_attr is not None:
+            if self.agg_attr.is_discrete:
+                new_aggs = [agg for agg in AGG_FUNCS if AGG_FUNCS[agg].disc]
+            elif self.agg_attr.is_time:
+                new_aggs = [agg for agg in AGG_FUNCS if AGG_FUNCS[agg].time]
+        self.agg_func_combo.addItems(new_aggs)
+
+        if current_agg in new_aggs:
+            self.agg_func = current_agg
+        else:
+            self.agg_func = DEFAULT_AGG_FUNC
+
+        self.setup_plot()
+
+    def setup_plot(self):
+        self.controls.binning_index.setEnabled(not self.is_mode())
         self.clear()
-        
-        if data is None:
+        self.graph.reset_graph()
+
+    def is_valid(self):
+        return self.attr_lat is not None and \
+               (self.agg_attr is not None or self.agg_func == "Count")
+
+    def apply_selection(self):
+        if self.data is not None and self.selection is not None:
+            index_group = np.array(self.selection).T
+            selection = np.zeros(self.graph.n_ids, dtype=np.uint8)
+            selection[index_group[0]] = index_group[1]
+            self.graph.selection = selection
+            self.graph.update_selection_colors()
+
+    def selection_changed(self):
+        sel = None if self.data and isinstance(self.data, SqlTable) \
+            else self.graph.selection
+        self.selection = [(i, x) for i, x in enumerate(sel) if x] \
+            if sel is not None else None
+        self.commit()
+
+    def commit(self):
+        self.send_data()
+
+    def send_data(self):
+        data, graph_sel = self.data, self.graph.get_selection()
+        group_sel, selected_data, ann_data = None, None, None
+        if data is not None and len(data):
+            # we get selection by region ids so we have to map it to points
+            group_sel = np.zeros(len(data), dtype=int)
+            for id, s in zip(self.region_ids, graph_sel):
+                if s == 0:
+                    continue
+                id_indices = np.where(self.data_ids == id)[0]
+                group_sel[id_indices] = s
+
+        if np.sum(graph_sel) > 0:
+            selected_data = create_groups_table(data, group_sel, False, "Group")
+
+        if data is not None:
+            if np.max(graph_sel) > 1:
+                ann_data = create_groups_table(data, group_sel)
+            else:
+                ann_data = create_annotated_table(data, group_sel.astype(bool))
+
+        self.output_changed.emit(selected_data)
+        self.Outputs.selected_data.send(selected_data)
+        self.Outputs.annotated_data.send(ann_data)
+
+    def recompute_binnings(self):
+        if self.is_mode():
             return
 
-        self._combo_attr.model().set_domain(data.domain)
-        self._latlon_model.set_domain(data.domain)
-
-        lat, lon = find_lat_lon(data)
-        if lat or lon:
-            self._combo_lat.setCurrentIndex(-1 if lat is None else self._latlon_model.indexOf(lat))
-            self._combo_lon.setCurrentIndex(-1 if lat is None else self._latlon_model.indexOf(lon))
-            self.lat_attr = lat.name if lat else None
-            self.lon_attr = lon.name if lon else None
-            if lat and lon:
-                self.latlon = np.c_[self.data.get_column_view(self.lat_attr)[0],
-                                    self.data.get_column_view(self.lon_attr)[0]]
-
-        if data.domain.class_var:
-            self.attr = data.domain.class_var.name
+        if self.is_time():
+            self.binnings = time_binnings(self.agg_data,
+                                          min_bins=3, max_bins=15)
         else:
-            self.attr = self._combo_attr.itemText(0)
+            self.binnings = decimal_binnings(self.agg_data,
+                                             min_bins=3, max_bins=15)
 
-        self.openContext(data)
+        max_bins = len(self.binnings) - 1
+        self.controls.binning_index.setMaximum(max_bins)
+        self.binning_index = min(max_bins, self.binning_index)
 
-        if self.selection:
-            self.map.preset_region_selection(self.selection)
-        self.aggregate()
+    def get_binning(self) -> BinDefinition:
+        return self.binnings[self.binning_index]
 
-        self.map.set_opacity(self.opacity)
-
-        if self.isVisible():
-            self.map.fit_to_bounds()
+    def get_palette(self):
+        if self.agg_func in ('Count', 'Count defined'):
+            return DefaultContinuousPalette
+        elif self.is_mode():
+            return LimitedDiscretePalette(MAX_COLORS)
         else:
-            self._should_fit_bounds = True
+            return self.agg_attr.palette
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        if self._should_fit_bounds:
-            QTimer.singleShot(500, self.map.fit_to_bounds)
-            self._should_fit_bounds = False
+    def get_color_data(self):
+        return self.get_agg_data()
 
-    def aggregate(self):
-        if self.latlon is None or self.attr not in self.data.domain:
-            self.clear(caches=False)
-            return
+    def get_color_labels(self):
+        if self.is_mode():
+            return self.get_agg_data(return_labels=True)
+        elif self.is_time():
+            return self.agg_attr.str_val
 
-        attr = self.data.domain[self.attr]
+    def get_agg_data(self, return_labels=False):
+        needs_merging = self.is_mode() \
+                        and len(self.agg_attr.values) >= MAX_COLORS
+        if return_labels and not needs_merging:
+            return self.agg_attr.values
 
-        if attr.is_discrete and self.agg_func not in self.AGG_FUNCS_DISCRETE:
-            self.Error.aggregation_discrete(', '.join(map(str.lower, self.AGG_FUNCS_DISCRETE)))
-            self.Warning.logarithmic_nonpositive.clear()
-            self.clear(caches=False)
-            return
+        if not needs_merging:
+            return self.agg_data
+
+        dist = bincount(self.agg_data, max_val=len(self.agg_attr.values) - 1)[0]
+        infrequent = np.zeros(len(self.agg_attr.values), dtype=bool)
+        infrequent[np.argsort(dist)[:-(MAX_COLORS - 1)]] = True
+        if return_labels:
+            return [value for value, infreq in zip(self.agg_attr.values, infrequent)
+                    if not infreq] + ["Other"]
         else:
-            self.Error.aggregation_discrete.clear()
+            result = self.agg_data.copy()
+            freq_vals = [i for i, f in enumerate(infrequent) if not f]
+            for i, infreq in enumerate(infrequent):
+                if infreq:
+                    result[self.agg_data == i] = MAX_COLORS - 1
+                else:
+                    result[self.agg_data == i] = freq_vals.index(i)
+            return result
 
-        try:
-            regions, adm0, result, self.map.bounds = \
-                self.get_grouped(self.lat_attr, self.lon_attr, self.admin, self.attr, self.agg_func)
-        except ValueError:
-            # This might happen if widget scheme File→Choropleth, and
-            # some attr is selected in choropleth, and then the same attr
-            # is set to string attr in File and dataset reloaded.
-            # Our "dataflow" arch can suck my balls
-            return
+    def is_mode(self):
+        return self.agg_attr is not None and \
+               self.agg_attr.is_discrete and \
+               self.agg_func == 'Mode'
 
-        # Only show discrete values that are contained in aggregated results
-        discrete_values = []
-        if attr.is_discrete and not self.agg_func.startswith('Count'):
-            subset = sorted(result.drop_duplicates().dropna().astype(int))
-            discrete_values = np.array(attr.values)[subset].tolist()
-            discrete_colors = np.array(attr.colors)[subset].tolist()
-            result = result.replace(dict(zip(subset, range(len(subset)))))
+    def is_time(self):
+        return self.agg_attr is not None and \
+               self.agg_attr.is_time and \
+               self.agg_func not in ('Count', 'Count defined')
 
-        self.result_min_nonpositive = attr.is_continuous and result.min() <= 0
-        force_quantization = self.color_quantization.startswith('log') and self.result_min_nonpositive
-        self.Warning.logarithmic_nonpositive(shown=force_quantization)
-
-        repr_time = isinstance(attr, TimeVariable) and self.agg_func not in self.AGG_FUNCS_CANT_TIME
-
-        self.map.exposeObject(
-            'results',
-            dict(discrete=discrete_values,
-                 colors=[color_to_hex(i)
-                         for i in (discrete_colors if discrete_values else
-                                   ((0, 0, 255), (255, 255, 0)) if attr.is_discrete else
-                                   attr.colors[:-1])],  # ???
-                 regions=list(adm0),
-                 attr=attr.name,
-                 have_nonpositive=self.result_min_nonpositive or bool(discrete_values),
-                 values=result.to_dict(),
-                 repr_vals=result.map(attr.repr_val).to_dict() if repr_time else {},
-                 minmax=([result.min(), result.max()] if attr.is_discrete and not discrete_values else
-                         [attr.repr_val(result.min()), attr.repr_val(result.max())] if repr_time or not discrete_values else
-                         [])))
-
-        self.map.evalJS('replot();')
+    def colors_changed(self):
+        if self.choropleth_regions:
+            self.graph.update_colors()
 
     @memoize_method(3)
     def get_regions(self, lat_attr, lon_attr, admin):
+        """
+        Map points to regions and get regions information.
+        Returns:
+            ndarray of ids corresponding to points,
+            dict of region ids matched to their additional info,
+            dict of region ids matched to their polygon
+        """
         latlon = np.c_[self.data.get_column_view(lat_attr)[0],
                        self.data.get_column_view(lon_attr)[0]]
-        regions = latlon2region(latlon, admin)
-        adm0 = ({'0'} if admin == 0 else
-                {'1-' + a3 for a3 in (i.get('adm0_a3') for i in regions) if a3} if admin == 1 else
-                {('2-' if a3 in ADMIN2_COUNTRIES else '1-') + a3
-                 for a3 in (i.get('adm0_a3') for i in regions) if a3})
-        ids = [i.get('_id') for i in regions]
-        self.ids = pd.Series(ids)
-        regions = set(ids) - {None}
-        bounds = get_bounding_rect(regions) if regions else None
-        return regions, ids, adm0, bounds
+        region_info = latlon2region(latlon, admin)
+        ids = np.array([region.get('_id') for region in region_info])
+        region_info = {info.get('_id'): info for info in region_info}
+
+        self.data_ids = np.array(ids)
+        no_region = np.sum(self.data_ids == None)
+        if no_region:
+            self.Warning.no_region(no_region)
+
+        unique_ids = list(set(ids) - {None})
+        polygons = {_id: poly
+                    for _id, poly in zip(unique_ids, get_shape(unique_ids))}
+        return ids, region_info, polygons
 
     @memoize_method(6)
     def get_grouped(self, lat_attr, lon_attr, admin, attr, agg_func):
-        log.debug('Grouping %s(%s) by (%s, %s; admin%d)',
-                  agg_func, attr, lat_attr,  lon_attr, admin)
-        regions, ids, adm0, bounds = self.get_regions(lat_attr, lon_attr, admin)
-        attr = self.data.domain[attr]
-        result = pd.Series(self.data.get_column_view(attr)[0], dtype=float)\
+        """
+        Get aggregation value for points grouped by regions.
+        Returns:
+            dict of region ids matched to their additional info,
+            dict of region ids matched to their polygon,
+            Series of aggregated values
+        """
+        if attr is not None:
+            data = self.data.get_column_view(attr)[0]
+        else:
+            data = np.ones(len(self.data))
+
+        ids, region_info, polygons = self.get_regions(lat_attr, lon_attr, admin)
+        result = pd.Series(data, dtype=float)\
             .groupby(ids)\
-            .agg(self.AGG_FUNCS_TRANSFORM.get(agg_func, agg_func.lower()))
-        return regions, adm0, result, bounds
+            .agg(AGG_FUNCS[agg_func].transform)
 
-    def clear(self, caches=True):
-        if caches:
-            try:
-                self.get_regions.cache_clear()
-                self.get_grouped.cache_clear()
-            except AttributeError:
-                pass  # back-compat https://github.com/biolab/orange3/pull/2229
-        self.selection = []
-        self.map.exposeObject('results', {})
-        self.map.evalJS('replot();')
+        return region_info, polygons, result
 
+    def _repr_val(self, value):
+        if self.agg_func in ('Count', 'Count defined'):
+            return f"{value:d}"
+        else:
+            return self.agg_attr.repr_val(value)
 
-def main():
-    from AnyQt.QtWidgets import QApplication
-    a = QApplication([])
+    def _create_choropleth_regions(self):
+        """Recalculate regions and group by."""
+        region_info, polygons, result = self.get_grouped(self.attr_lat,
+                                                         self.attr_lon,
+                                                         self.admin_level,
+                                                         self.agg_attr,
+                                                         self.agg_func)
+        self.agg_data = np.array(result.values)
+        self.region_ids = np.array(result.index)
+        self.recompute_binnings()
 
-    ow = OWChoropleth()
-    ow.show()
-    ow.raise_()
-    data = Table("India_census_district_population")
-    ow.set_data(data)
+        regions = []
+        for id, res in result.iteritems():
+            if isinstance(polygons[id], MultiPolygon):
+                # some regions consist of multiple polygons
+                poly = list(polygons[id].geoms)
+            else:
+                poly = [polygons[id]]
 
-    a.exec()
-    ow.saveSettings()
+            for _poly in poly:
+                qpoly = self.poly2qpoly(transform(self.deg2canvas, _poly))
+                regions.append(
+                    _ChoroplethRegion(id=id, agg_value=self._repr_val(res),
+                                      info=region_info[id],
+                                      qpoly=qpoly))
+        self.choropleth_regions = regions
+
+    def get_choropleth_regions(self) -> List[_ChoroplethRegion]:
+        if not self.choropleth_regions and self.is_valid():
+            self._create_choropleth_regions()
+        return self.choropleth_regions
+
+    @staticmethod
+    def poly2qpoly(poly: Polygon) -> QPolygonF:
+        return QPolygonF([QPointF(x, y)
+                          for x, y in poly.exterior.coords])
+
+    @staticmethod
+    def deg2canvas(x, y):
+        x, y = deg2norm(x, y)
+        y = 1 - y
+        return x, y
+
+    def clear(self, cache=False):
+        self.choropleth_regions = []
+        if cache:
+            self.get_regions.cache_clear()
+            self.get_grouped.cache_clear()
+
+    def send_report(self):
+        if self.data is None:
+            return
+        self.report_plot()
+
+    def sizeHint(self):
+        return QSize(1132, 708)
+
+    def onDeleteWidget(self):
+        super().onDeleteWidget()
+        self.graph.plot_widget.getViewBox().deleteLater()
+        self.graph.plot_widget.clear()
+        self.graph.clear()
+
+    def keyPressEvent(self, event):
+        """Update the tip about using the modifier keys when selecting"""
+        super().keyPressEvent(event)
+        self.graph.update_tooltip(event.modifiers())
+
+    def keyReleaseEvent(self, event):
+        """Update the tip about using the modifier keys when selecting"""
+        super().keyReleaseEvent(event)
+        self.graph.update_tooltip(event.modifiers())
+
+    def showEvent(self, ev):
+        super().showEvent(ev)
+        # reset the map on show event since before that we didn't know the
+        # right resolution
+        self.graph.update_view_range()
+
+    def resizeEvent(self, ev):
+        super().resizeEvent(ev)
+        # when resizing we need to constantly reset the map so that new
+        # portions are drawn
+        self.graph.update_view_range(match_data=False)
+
+    @classmethod
+    def migrate_settings(cls, settings, version):
+        if version < 2:
+            settings["graph"] = {}
+            rename_setting(settings, "admin", "admin_level")
+            rename_setting(settings, "autocommit", "auto_commit")
+            settings["graph"]["alpha_value"] = \
+                round(settings["opacity"] * 2.55)
+            settings["graph"]["show_legend"] = settings["show_legend"]
+
+    @classmethod
+    def migrate_context(cls, context, version):
+        if version < 2:
+            migrate_str_to_variable(context, names="lat_attr",
+                                    none_placeholder="")
+            migrate_str_to_variable(context, names="lon_attr",
+                                    none_placeholder="")
+            migrate_str_to_variable(context, names="attr",
+                                    none_placeholder="")
+
+            rename_setting(context, "lat_attr", "attr_lat")
+            rename_setting(context, "lon_attr", "attr_lon")
+            rename_setting(context, "attr", "agg_attr")
+            # old selection will not be ported
+            rename_setting(context, "selection", "old_selection")
+
+            if context.values["agg_func"][0] == "Max":
+                context.values["agg_func"] = ("Maximal",
+                                              context.values["agg_func"][1])
+            elif context.values["agg_func"][0] == "Min":
+                context.values["agg_func"] = ("Minimal",
+                                              context.values["agg_func"][1])
+            elif context.values["agg_func"][0] == "Std":
+                context.values["agg_func"] = ("Std.",
+                                              context.values["agg_func"][1])
+
 
 if __name__ == "__main__":
-    main()
+    data = Table("India_census_district_population")
+    WidgetPreview(OWChoropleth).run(data)

@@ -66,7 +66,7 @@ if __name__ == '__main__':
         },
         include_package_data=True,
         install_requires=[
-            'Orange3>=3.20.0',
+            'Orange3>=3.24.0',
             'scikit-learn',
             'pandas',
             'scipy>=0.17',
