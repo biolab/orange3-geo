@@ -1,17 +1,19 @@
 import sys
+import itertools
 from xml.sax.saxutils import escape
 from typing import List, NamedTuple, Optional, Union, Callable
 from math import floor, log10
 
 from AnyQt.QtCore import Qt, QObject, QSize, QRectF, pyqtSignal as Signal, \
     QPointF
-from AnyQt.QtGui import QPen, QBrush, QColor, QPolygonF, QPainter
+from AnyQt.QtGui import QPen, QBrush, QColor, QPolygonF, QPainter, QStaticText
 from AnyQt.QtWidgets import QApplication, QToolTip, QGraphicsTextItem, \
     QGraphicsRectItem
 
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import transform
 import pyqtgraph as pg
+from pyqtgraph.graphicsItems.LegendItem import ItemSample
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -34,7 +36,7 @@ from Orange.widgets.utils.colorpalettes import BinnedContinuousPalette, \
     DefaultContinuousPalette, LimitedDiscretePalette
 from Orange.widgets.widget import Input, OWWidget, Msg, Output
 from Orange.widgets.visualize.owscatterplotgraph import LegendItem, \
-    PaletteItemSample, SymbolItemSample
+    SymbolItemSample
 from Orange.widgets.visualize.utils.plotutils import HelpEventDelegate
 from Orange.widgets.visualize.utils.widget import MAX_COLORS
 from Orange.widgets.settings import Setting, SettingProvider, rename_setting, \
@@ -63,19 +65,53 @@ _ChoroplethRegion = NamedTuple(
 )
 
 
-class DiscretizedScale:
-    def __init__(self, binning: BinDefinition):
-        self.binning = binning
-        self.offset = binning.start
-        if binning.width is not None:
-            self.width = binning.width
-        else:
-            self.width = binning.thresholds[1] - binning.thresholds[0]
-        self.bins = binning.nbins
-        self.decimals = max(-floor(log10(self.width)), 0)
+class BinningPaletteItemSample(ItemSample):
+    """Legend ItemSample item for discretized colors"""
 
-    def get_bins(self):
-        return self.binning.thresholds
+    def __init__(self, palette: BinnedContinuousPalette,
+                 binning: BinDefinition, label_formatter=None):
+        """
+        :param palette: palette used for showing continuous values
+        :param binning: binning used to discretize colors
+        """
+        super().__init__(None)
+
+        self.palette = palette
+        self.binning = binning
+        if label_formatter is None:
+            if binning.width is not None:
+                width = binning.width
+            else:
+                width = min([t2 - t1
+                             for t1, t2 in zip(binning.thresholds,
+                                               binning.thresholds[1:])])
+            decimals = max(-floor(log10(width)), 0)
+            label_formatter = "{{:.{}f}}".format(decimals).format
+        cuts = [label_formatter(l) for l in self.binning.thresholds]
+        self.labels = [QStaticText("{} - {}".format(fr, to))
+                       for fr, to in zip(cuts, cuts[1:])]
+        font = self.font()
+        font.setPixelSize(11)
+        for label in self.labels:
+            label.prepare(font=font)
+        self.text_width = max(label.size().width() for label in self.labels)
+
+    def boundingRect(self):
+        return QRectF(0, 0, 40 + self.text_width, 20 + self.binning.nbins * 15)
+
+    def paint(self, p, *args):
+        p.setRenderHint(p.Antialiasing)
+        p.translate(5, 5)
+        font = p.font()
+        font.setPixelSize(11)
+        p.setFont(font)
+        colors = self.palette.qcolors
+        for i, color, label in zip(itertools.count(), colors, self.labels):
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(color))
+            p.drawRect(0, i * 15, 15, 15)
+            p.setPen(QPen(Qt.black))
+            p.drawStaticText(20, i * 15 + 1, label)
 
 
 class ChoroplethItem(pg.GraphicsObject):
@@ -163,7 +199,6 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
         self.selection = None  # np.ndarray
 
         self.palette = None
-        self.scale = None  # DiscretizedScale
         self.color_legend = self._create_legend(((1, 1), (1, 1)))
         self.update_legend_visibility()
 
@@ -262,8 +297,7 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
 
     def _get_continuous_colors(self, c_data):
         palette = self.master.get_palette()
-        self.scale = DiscretizedScale(self.master.get_binning())
-        bins = self.scale.get_bins()
+        bins = self.master.get_binning().thresholds
         self.palette = BinnedContinuousPalette.from_palette(palette, bins)
         rgb = self.palette.values_to_colors(c_data)
         rgba = np.hstack(
@@ -292,9 +326,9 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
         self.update_legend_visibility()
 
     def _update_continuous_color_legend(self, label_formatter):
-        if self.scale is None:
-            return
-        label = PaletteItemSample(self.palette, self.scale, label_formatter)
+        label = BinningPaletteItemSample(self.palette,
+                                         self.master.get_binning(),
+                                         label_formatter)
         self.color_legend.addItem(label, "")
         self.color_legend.setGeometry(label.boundingRect())
 
@@ -766,10 +800,10 @@ class OWChoropleth(OWWidget):
             return
 
         if self.is_time():
-            self.binnings = time_binnings(self.agg_data,
+            self.binnings = time_binnings(self.agg_data, min_unique=3,
                                           min_bins=3, max_bins=15)
         else:
-            self.binnings = decimal_binnings(self.agg_data,
+            self.binnings = decimal_binnings(self.agg_data, min_unique=3,
                                              min_bins=3, max_bins=15)
 
         max_bins = len(self.binnings) - 1
