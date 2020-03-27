@@ -24,9 +24,6 @@ addons:
 
 before_install:
   - set -e  # fail on any error
-  # Merge in the GeoJSON files
-  - git fetch --force origin +json:json
-  - git checkout json -- orangecontrib/geo/geojson/\*.json
 
 install:
   - pip install -U pip
