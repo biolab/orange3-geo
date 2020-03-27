@@ -1,0 +1,3 @@
+{"type":"FeatureCollection","features":[
+{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[-5.358386758763487,36.1411094470883],[-5.338773483119979,36.14111967201225],[-5.34203040299991,36.11050039300005],[-5.350249803999901,36.11928945500003],[-5.358386758763487,36.1411094470883]]]},"properties":{"name":"Gibraltar","type":null,"adm0_a3":"GIB","hasc":"GI.GI","_id":"GIB+00?","iso_a2":"GI","fips":null,"admin":"Gibraltar","longitude":-5.34595,"latitude":36.1291}}
+]}
