@@ -5,9 +5,9 @@ from AnyQt.QtCore import QRectF, QPointF
 
 from Orange.data import Table
 from Orange.widgets.tests.base import WidgetTest, WidgetOutputsTestMixin
-from Orange.widgets.visualize.owscatterplotgraph import PaletteItemSample, \
-    SymbolItemSample
-from orangecontrib.geo.widgets.owchoropleth import OWChoropleth
+from Orange.widgets.visualize.owscatterplotgraph import SymbolItemSample
+from orangecontrib.geo.widgets.owchoropleth import OWChoropleth, \
+    BinningPaletteItemSample
 
 
 class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
@@ -48,7 +48,7 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
         self.send_signal(self.widget.Inputs.data, self.data)
         self.widget.admin_level = 1
         self.assertIsInstance(self.widget.graph.color_legend.items[0][0],
-                              PaletteItemSample)
+                              BinningPaletteItemSample)
         self.assertFalse(self.widget.is_mode())
 
         self.widget.agg_func = "Mode"

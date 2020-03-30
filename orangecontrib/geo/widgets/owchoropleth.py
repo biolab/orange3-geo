@@ -3,6 +3,7 @@ import itertools
 from xml.sax.saxutils import escape
 from typing import List, NamedTuple, Optional, Union, Callable
 from math import floor, log10
+from functools import reduce
 
 from AnyQt.QtCore import Qt, QObject, QSize, QRectF, pyqtSignal as Signal, \
     QPointF
@@ -58,8 +59,7 @@ CHOROPLETH_TILE_PROVIDER = _TileProvider(
 _ChoroplethRegion = NamedTuple(
     "_ChoroplethRegion", [
         ("id", str),
-        ("qpoly", QPolygonF),
-        ("agg_value", float),
+        ("qpolys", List[QPolygonF]),
         ("info", dict),
     ]
 )
@@ -116,9 +116,8 @@ class BinningPaletteItemSample(ItemSample):
 
 class ChoroplethItem(pg.GraphicsObject):
     """
-    GraphicsObject that is a polygon that represents part of region.
-    Regions can consist of multiple disjoint polygons so they are represented
-    with multiple ChoroplethItem.
+    GraphicsObject that represents regions.
+    Regions can consist of multiple disjoint polygons.
     """
 
     itemClicked = Signal(str)  # send region id
@@ -126,16 +125,24 @@ class ChoroplethItem(pg.GraphicsObject):
     def __init__(self, region: _ChoroplethRegion, pen: QPen, brush: QBrush):
         pg.GraphicsObject.__init__(self)
         self.region = region
+        self.agg_value = None
         self.pen = pen
         self.brush = brush
-        self.tooltip_text = self._tooltip(self.region)
+
+        self._region_info = self._get_region_info(self.region)
+        self._bounding_rect = reduce(
+            lambda br1, br2: br1.united(br2),
+            (qpoly.boundingRect() for qpoly in self.region.qpolys)
+        )
 
     @staticmethod
-    def _tooltip(region: _ChoroplethRegion):
-        agg_text = f"<b>Agg. value = {region.agg_value}</b><hr/>"
+    def _get_region_info(region: _ChoroplethRegion):
         region_text = "<br/>".join(escape('{} = {}'.format(k, v))
                                    for k, v in region.info.items())
-        return agg_text + "<b>Region info:</b><br/>" + region_text
+        return "<b>Region info:</b><br/>" + region_text
+
+    def tooltip(self):
+        return f"<b>Agg. value = {self.agg_value}</b><hr/>{self._region_info}"
 
     def setPen(self, pen):
         self.pen = pen
@@ -148,16 +155,19 @@ class ChoroplethItem(pg.GraphicsObject):
     def paint(self, p: QPainter, *args):
         p.setBrush(self.brush)
         p.setPen(self.pen)
-        p.drawPolygon(self.region.qpoly)
+        for qpoly in self.region.qpolys:
+            p.drawPolygon(qpoly)
 
     def boundingRect(self) -> QRectF:
-        return self.region.qpoly.boundingRect()
+        return self._bounding_rect
 
     def contains(self, point: QPointF) -> bool:
-        return self.region.qpoly.containsPoint(point, Qt.OddEvenFill)
+        return any(qpoly.containsPoint(point, Qt.OddEvenFill)
+                   for qpoly in self.region.qpolys)
 
     def intersects(self, poly: QPolygonF) -> bool:
-        return not self.region.qpoly.intersected(poly).isEmpty()
+        return any(not qpoly.intersected(poly).isEmpty()
+                   for qpoly in self.region.qpolys)
 
     def mouseClickEvent(self, ev):
         if ev.button() == Qt.LeftButton and self.contains(ev.pos()):
@@ -263,7 +273,8 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
         """Draw new polygons."""
         pen = self._make_pen(QColor(Qt.white), 1)
         brush = QBrush(Qt.NoBrush)
-        for region in self.master.get_choropleth_regions():
+        regions = self.master.get_choropleth_regions()
+        for region in regions:
             choropleth_item = ChoroplethItem(region, pen=pen, brush=brush)
             choropleth_item.itemClicked.connect(self.select_by_id)
             self.plot_widget.addItem(choropleth_item)
@@ -273,15 +284,15 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
             self.n_ids = len(self.master.region_ids)
 
     def update_colors(self):
-        """Update inner color of existing polygons."""
+        """Update agg_value and inner color of existing polygons."""
         if not self.choropleth_items:
             return
 
+        agg_data = self.master.get_agg_data()
         brushes = self.get_colors()
-        rid2brush = {rid: b
-                     for rid, b in zip(self.master.region_ids, brushes)}
-        for ci in self.choropleth_items:
-            ci.setBrush(rid2brush[ci.region.id])
+        for ci, d, b in zip(self.choropleth_items, agg_data, brushes):
+            ci.agg_value = d
+            ci.setBrush(b)
         self.update_legends()
 
     def get_colors(self):
@@ -352,9 +363,8 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
         Update color of selected regions.
         """
         pens = self.get_colors_sel()
-        rid2pen = {rid: pen for rid, pen in zip(self.master.region_ids, pens)}
-        for ci in self.choropleth_items:
-            ci.setPen(rid2pen[ci.region.id])
+        for ci, pen in zip(self.choropleth_items, pens):
+            ci.setPen(pen)
 
     def get_colors_sel(self):
         white_pen = self._make_pen(QColor(Qt.white), 1)
@@ -400,8 +410,7 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
 
     def select_by_rectangle(self, rect: QRectF):
         """
-        Find polygons that intersect with selected rectangle and select all
-        corresponding regions.
+        Find regions that intersect with selected rectangle.
         """
         poly_rect = QPolygonF(rect)
         indices = set()
@@ -475,7 +484,7 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
         ci = next((ci for ci in self.choropleth_items
                    if ci.contains(act_pos)), None)
         if ci is not None:
-            QToolTip.showText(event.screenPos(), ci.tooltip_text,
+            QToolTip.showText(event.screenPos(), ci.tooltip(),
                               widget=self.plot_widget)
             return True
         else:
@@ -634,8 +643,9 @@ class OWChoropleth(OWWidget):
                      **options)
 
         self.agg_func_combo = gui.comboBox(agg_box, self, 'agg_func',
-                                           label='Agg.:', items=list(AGG_FUNCS),
-                                           callback=self.setup_plot,
+                                           label='Agg.:',
+                                           items=[DEFAULT_AGG_FUNC],
+                                           callback=self.graph.update_colors,
                                            **options)
 
         a_slider = gui.hSlider(agg_box, self, 'admin_level', minValue=0,
@@ -647,13 +657,14 @@ class OWChoropleth(OWWidget):
         b_slider = gui.hSlider(visualization_box, self, "binning_index",
                                label="Bin width:", minValue=0,
                                maxValue=max(1, len(self.binnings) - 1),
-                               createLabel=False, callback=self.colors_changed)
+                               createLabel=False,
+                               callback=self.graph.update_colors)
         b_slider.setFixedWidth(176)
 
         av_slider = gui.hSlider(visualization_box, self, "graph.alpha_value",
                                 minValue=0, maxValue=255, step=10,
                                 label="Opacity:", createLabel=False,
-                                callback=self.colors_changed)
+                                callback=self.graph.update_colors)
         av_slider.setFixedWidth(176)
 
         gui.checkBox(visualization_box, self, "graph.show_legend",
@@ -693,8 +704,8 @@ class OWChoropleth(OWWidget):
         if not (data_existed and self.data is not None and
                 array_equal(effective_data.X, self.effective_data.X)):
             self.clear(cache=True)
-            self.graph.clear()
             self.input_changed.emit(data)
+            self.setup_plot()
         self.update_agg()
         self.apply_selection()
         self.unconditional_commit()
@@ -741,7 +752,7 @@ class OWChoropleth(OWWidget):
         else:
             self.agg_func = DEFAULT_AGG_FUNC
 
-        self.setup_plot()
+        self.graph.update_colors()
 
     def setup_plot(self):
         self.controls.binning_index.setEnabled(not self.is_mode())
@@ -773,7 +784,7 @@ class OWChoropleth(OWWidget):
     def send_data(self):
         data, graph_sel = self.data, self.graph.get_selection()
         group_sel, selected_data, ann_data = None, None, None
-        if data is not None and len(data):
+        if data is not None and len(data) and self.region_ids is not None:
             # we get selection by region ids so we have to map it to points
             group_sel = np.zeros(len(data), dtype=int)
             for id, s in zip(self.region_ids, graph_sel):
@@ -782,14 +793,14 @@ class OWChoropleth(OWWidget):
                 id_indices = np.where(self.data_ids == id)[0]
                 group_sel[id_indices] = s
 
-        if np.sum(graph_sel) > 0:
-            selected_data = create_groups_table(data, group_sel, False, "Group")
+            if np.sum(graph_sel) > 0:
+                selected_data = create_groups_table(data, group_sel, False, "Group")
 
-        if data is not None:
-            if np.max(graph_sel) > 1:
-                ann_data = create_groups_table(data, group_sel)
-            else:
-                ann_data = create_annotated_table(data, group_sel.astype(bool))
+            if data is not None:
+                if np.max(graph_sel) > 1:
+                    ann_data = create_groups_table(data, group_sel)
+                else:
+                    ann_data = create_annotated_table(data, group_sel.astype(bool))
 
         self.output_changed.emit(selected_data)
         self.Outputs.selected_data.send(selected_data)
@@ -822,15 +833,18 @@ class OWChoropleth(OWWidget):
             return self.agg_attr.palette
 
     def get_color_data(self):
-        return self.get_agg_data()
+        return self.get_reduced_agg_data()
 
     def get_color_labels(self):
         if self.is_mode():
-            return self.get_agg_data(return_labels=True)
+            return self.get_reduced_agg_data(return_labels=True)
         elif self.is_time():
             return self.agg_attr.str_val
 
-    def get_agg_data(self, return_labels=False):
+    def get_reduced_agg_data(self, return_labels=False):
+        """
+        This returns agg data or its labels. It also merges infrequent data.
+        """
         needs_merging = self.is_mode() \
                         and len(self.agg_attr.values) >= MAX_COLORS
         if return_labels and not needs_merging:
@@ -865,10 +879,6 @@ class OWChoropleth(OWWidget):
                self.agg_attr.is_time and \
                self.agg_func not in ('Count', 'Count defined')
 
-    def colors_changed(self):
-        if self.choropleth_regions:
-            self.graph.update_colors()
-
     @memoize_method(3)
     def get_regions(self, lat_attr, lon_attr, admin):
         """
@@ -894,13 +904,10 @@ class OWChoropleth(OWWidget):
                     for _id, poly in zip(unique_ids, get_shape(unique_ids))}
         return ids, region_info, polygons
 
-    @memoize_method(6)
     def get_grouped(self, lat_attr, lon_attr, admin, attr, agg_func):
         """
         Get aggregation value for points grouped by regions.
         Returns:
-            dict of region ids matched to their additional info,
-            dict of region ids matched to their polygon,
             Series of aggregated values
         """
         if attr is not None:
@@ -908,12 +915,28 @@ class OWChoropleth(OWWidget):
         else:
             data = np.ones(len(self.data))
 
-        ids, region_info, polygons = self.get_regions(lat_attr, lon_attr, admin)
+        ids, _, _ = self.get_regions(lat_attr, lon_attr, admin)
         result = pd.Series(data, dtype=float)\
             .groupby(ids)\
             .agg(AGG_FUNCS[agg_func].transform)
 
-        return region_info, polygons, result
+        return result
+
+    def get_agg_data(self) -> np.ndarray:
+        result = self.get_grouped(self.attr_lat, self.attr_lon,
+                                  self.admin_level, self.agg_attr,
+                                  self.agg_func)
+
+        self.agg_data = np.array(result.values)
+        self.region_ids = np.array(result.index)
+
+        arg_region_sort = np.argsort(self.region_ids)
+        self.region_ids = self.region_ids[arg_region_sort]
+        self.agg_data = self.agg_data[arg_region_sort]
+
+        self.recompute_binnings()
+
+        return self.agg_data
 
     def _repr_val(self, value):
         if self.agg_func in ('Count', 'Count defined'):
@@ -921,36 +944,30 @@ class OWChoropleth(OWWidget):
         else:
             return self.agg_attr.repr_val(value)
 
-    def _create_choropleth_regions(self):
-        """Recalculate regions and group by."""
-        region_info, polygons, result = self.get_grouped(self.attr_lat,
-                                                         self.attr_lon,
-                                                         self.admin_level,
-                                                         self.agg_attr,
-                                                         self.agg_func)
-        self.agg_data = np.array(result.values)
-        self.region_ids = np.array(result.index)
-        self.recompute_binnings()
+    def get_choropleth_regions(self) -> List[_ChoroplethRegion]:
+        """Recalculate regions"""
+        if not self.is_valid():
+            return []
+
+        _, region_info, polygons = self.get_regions(self.attr_lat,
+                                                    self.attr_lon,
+                                                    self.admin_level)
 
         regions = []
-        for id, res in result.iteritems():
-            if isinstance(polygons[id], MultiPolygon):
+        for _id in polygons:
+            if isinstance(polygons[_id], MultiPolygon):
                 # some regions consist of multiple polygons
-                poly = list(polygons[id].geoms)
+                polys = list(polygons[_id].geoms)
             else:
-                poly = [polygons[id]]
+                polys = [polygons[_id]]
 
-            for _poly in poly:
-                qpoly = self.poly2qpoly(transform(self.deg2canvas, _poly))
-                regions.append(
-                    _ChoroplethRegion(id=id, agg_value=self._repr_val(res),
-                                      info=region_info[id],
-                                      qpoly=qpoly))
-        self.choropleth_regions = regions
+            qpolys = [self.poly2qpoly(transform(self.deg2canvas, poly))
+                      for poly in polys]
+            regions.append(_ChoroplethRegion(id=_id, info=region_info[_id],
+                                             qpolys=qpolys))
 
-    def get_choropleth_regions(self) -> List[_ChoroplethRegion]:
-        if not self.choropleth_regions and self.is_valid():
-            self._create_choropleth_regions()
+        self.choropleth_regions = sorted(regions, key=lambda cr: cr.id)
+        self.get_agg_data()
         return self.choropleth_regions
 
     @staticmethod
@@ -968,7 +985,6 @@ class OWChoropleth(OWWidget):
         self.choropleth_regions = []
         if cache:
             self.get_regions.cache_clear()
-            self.get_grouped.cache_clear()
 
     def send_report(self):
         if self.data is None:
