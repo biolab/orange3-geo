@@ -349,6 +349,13 @@ def get_bounding_rect(region_ids):
     return tuple(mins.tolist() + maxs.tolist())
 
 
+@wait_until_loaded
+def get_shape(region_ids):
+    """Return list of shapely polygons for regions defined by ids"""
+    return [ID_REGIONS[_id][0] if _id in ID_REGIONS else None
+            for _id in region_ids]
+
+
 if __name__ == '__main__':
     from pprint import pprint
 
