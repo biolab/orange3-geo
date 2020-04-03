@@ -291,7 +291,7 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
         agg_data = self.master.get_agg_data()
         brushes = self.get_colors()
         for ci, d, b in zip(self.choropleth_items, agg_data, brushes):
-            ci.agg_value = d
+            ci.agg_value = self.master.format_agg_val(d)
             ci.setBrush(b)
         self.update_legends()
 
@@ -938,7 +938,7 @@ class OWChoropleth(OWWidget):
 
         return self.agg_data
 
-    def _repr_val(self, value):
+    def format_agg_val(self, value):
         if self.agg_func in ('Count', 'Count defined'):
             return f"{value:d}"
         else:
