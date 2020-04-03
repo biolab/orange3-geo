@@ -814,10 +814,10 @@ class OWChoropleth(OWWidget):
             return
 
         if self.is_time():
-            self.binnings = time_binnings(self.agg_data, min_unique=3,
+            self.binnings = time_binnings(self.agg_data,
                                           min_bins=3, max_bins=15)
         else:
-            self.binnings = decimal_binnings(self.agg_data, min_unique=3,
+            self.binnings = decimal_binnings(self.agg_data,
                                              min_bins=3, max_bins=15)
 
         max_bins = len(self.binnings) - 1
