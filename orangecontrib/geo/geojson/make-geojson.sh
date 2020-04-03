@@ -1,17 +1,4 @@
 #!/bin/bash
-#
-# Update GeoJSON files.
-#
-# Before running, wget & unzip into this dir:
-#   Admin0 (countries)
-#   - http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/cultural/ne_10m_admin_0_countries.zip
-#   Admin1 (states, regions, municipalities)
-#   - http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/cultural/ne_10m_admin_1_states_provinces.zip
-#   Admin2 (US counties)
-#   - http://www2.census.gov/geo/tiger/GENZ2015/shp/cb_2015_us_county_500k.zip
-#   - http://www2.census.gov/geo/tiger/GENZ2015/shp/cb_2015_us_state_5m.zip
-#   - http://www2.census.gov/geo/docs/reference/state.txt
-#   - contents as counties.txt https://web.archive.org/web/20160924075116/http://www.statoids.com/yus.html
 
 set -e
 
