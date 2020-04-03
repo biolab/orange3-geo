@@ -738,13 +738,16 @@ class OWChoropleth(OWWidget):
     def update_agg(self):
         current_agg = self.agg_func
         self.agg_func_combo.clear()
-        new_aggs = list(AGG_FUNCS)
 
         if self.agg_attr is not None:
+            new_aggs = list(AGG_FUNCS)
             if self.agg_attr.is_discrete:
                 new_aggs = [agg for agg in AGG_FUNCS if AGG_FUNCS[agg].disc]
             elif self.agg_attr.is_time:
                 new_aggs = [agg for agg in AGG_FUNCS if AGG_FUNCS[agg].time]
+        else:
+            new_aggs = [DEFAULT_AGG_FUNC]
+
         self.agg_func_combo.addItems(new_aggs)
 
         if current_agg in new_aggs:
