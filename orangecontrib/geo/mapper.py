@@ -177,7 +177,7 @@ class ToLatLon:
     def _get(cls, lookup, values, to_replace={}, _NUL={}):
         mapping = values.drop_duplicates()
         mapping.index = mapping.values.copy()
-        mapping.replace(to_replace, inplace=True)
+        mapping.replace(to_replace, inplace=True, regex=True)
         mapping = mapping.apply(lookup.get, args=(_NUL,))
         return values.map(mapping).tolist()
 
