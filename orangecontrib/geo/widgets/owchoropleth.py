@@ -762,10 +762,6 @@ class OWChoropleth(OWWidget):
         self.clear()
         self.graph.reset_graph()
 
-    def is_valid(self):
-        return self.attr_lat is not None and \
-               (self.agg_attr is not None or self.agg_func == "Count")
-
     def apply_selection(self):
         if self.data is not None and self.selection is not None:
             index_group = np.array(self.selection).T
@@ -786,15 +782,19 @@ class OWChoropleth(OWWidget):
 
     def send_data(self):
         data, graph_sel = self.data, self.graph.get_selection()
-        group_sel, selected_data, ann_data = None, None, None
-        if data is not None and len(data) and self.region_ids is not None:
-            # we get selection by region ids so we have to map it to points
+        selected_data, ann_data = None, None
+        if data:
             group_sel = np.zeros(len(data), dtype=int)
-            for id, s in zip(self.region_ids, graph_sel):
-                if s == 0:
-                    continue
-                id_indices = np.where(self.data_ids == id)[0]
-                group_sel[id_indices] = s
+
+            if len(graph_sel):
+                # we get selection by region ids so we have to map it to points
+                for id, s in zip(self.region_ids, graph_sel):
+                    if s == 0:
+                        continue
+                    id_indices = np.where(self.data_ids == id)[0]
+                    group_sel[id_indices] = s
+            else:
+                graph_sel = [0]
 
             if np.sum(graph_sel) > 0:
                 selected_data = create_groups_table(data, group_sel, False, "Group")
@@ -949,7 +949,8 @@ class OWChoropleth(OWWidget):
 
     def get_choropleth_regions(self) -> List[_ChoroplethRegion]:
         """Recalculate regions"""
-        if not self.is_valid():
+        if self.attr_lat is None:
+            # if we don't have locations we can't compute regions
             return []
 
         _, region_info, polygons = self.get_regions(self.attr_lat,
