@@ -588,8 +588,10 @@ class OWChoropleth(OWWidget):
     input_changed = Signal(object)
     output_changed = Signal(object)
 
-    class Warning(OWWidget.Warning):
+    class Error(OWWidget.Error):
         no_lat_lon_vars = Msg("Data has no latitude and longitude variables.")
+
+    class Warning(OWWidget.Warning):
         no_region = Msg("{} points are not in any region.")
 
     def __init__(self):
@@ -695,9 +697,9 @@ class OWChoropleth(OWWidget):
 
         self.closeContext()
         self.data = data
-        self.agg_func = DEFAULT_AGG_FUNC
         self.Warning.no_region.clear()
-        self.Warning.no_lat_lon_vars.clear()
+        self.Error.no_lat_lon_vars.clear()
+        self.agg_func = DEFAULT_AGG_FUNC
         self.init_attr_values()
         self.openContext(self.data)
 
@@ -711,21 +713,20 @@ class OWChoropleth(OWWidget):
         self.unconditional_commit()
 
     def init_attr_values(self):
-        domain = self.data.domain if self.data else None
+        lat, lon = None, None
+        if self.data is not None:
+            lat, lon = find_lat_lon(self.data, filter_hidden=True)
+            if lat is None or lon is None:
+                # we either find both or we don't have valid data
+                self.Error.no_lat_lon_vars()
+                self.data = None
+                lat, lon = None, None
+
+        domain = self.data.domain if self.data is not None else None
         self.lat_lon_model.set_domain(domain)
         self.agg_attr_model.set_domain(domain)
-
-        self.agg_attr = None
-        self.attr_lat, self.attr_lon = None, None
-
-        if self.data:
-            self.agg_attr = self.data.domain.class_var
-            attr_lat, attr_lon = find_lat_lon(self.data, filter_hidden=True)
-            if attr_lat is None or attr_lon is None:
-                # we either find both or none
-                self.Warning.no_lat_lon_vars()
-            else:
-                self.attr_lat, self.attr_lon = attr_lat, attr_lon
+        self.agg_attr = domain.class_var if domain is not None else None
+        self.attr_lat, self.attr_lon = lat, lon
 
     def set_input_summary(self, data):
         summary = str(len(data)) if data else self.info.NoInput
