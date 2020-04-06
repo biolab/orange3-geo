@@ -111,12 +111,13 @@ class OWMap(OWDataProjectionWidget):
     graph = settings.SettingProvider(OWScatterPlotMapGraph)
     embedding_variables_names = None
 
+    class Error(OWDataProjectionWidget.Error):
+        no_lat_lon_vars = Msg("Data has no latitude and longitude variables.")
+
     class Warning(OWDataProjectionWidget.Warning):
         missing_coords = Msg(
             "Plot cannot be displayed because '{}' or '{}' "
             "is missing for all data points")
-        no_continuous_vars = Msg("Data has no continuous variables")
-        no_lat_lon_vars = Msg("Data has no latitude and longitude variables.")
         out_of_range = Msg("Points with out of range latitude or longitude are not displayed.")
         no_internet = Msg("Cannot fetch map from the internet. "
                           "Displaying only cached parts.")
@@ -127,6 +128,7 @@ class OWMap(OWDataProjectionWidget):
 
     def __init__(self):
         super().__init__()
+        self._attr_lat, self._attr_lon = None, None
         self.graph.show_internet_error.connect(self._show_internet_error)
 
     def _show_internet_error(self, show):
@@ -165,13 +167,6 @@ class OWMap(OWDataProjectionWidget):
             label="Freeze map",
             tooltip="If checked, the map won't change position to fit new data.")
 
-    def check_data(self):
-        super().check_data()
-        if self.data is not None:
-            if not self.data.domain.has_continuous_attributes(True, True):
-                self.Warning.no_continuous_vars()
-                self.data = None
-
     def get_embedding(self):
         self.valid_data = None
         if self.data is None:
@@ -205,18 +200,19 @@ class OWMap(OWDataProjectionWidget):
         return np.vstack((x, y)).T
 
     def init_attr_values(self):
+        lat, lon = None, None
+        if self.data is not None:
+            lat, lon = find_lat_lon(self.data, filter_hidden=True)
+            if lat is None or lon is None:
+                # we either find both or we don't have valid data
+                self.Error.no_lat_lon_vars()
+                self.data = None
+                lat, lon = None, None
+
         super().init_attr_values()
-        self.Warning.no_lat_lon_vars.clear()
-        self.attr_lat, self.attr_lon = None, None
-        domain = self.data.domain if self.data else None
-        self.lat_lon_model.set_domain(domain)
-        if self.data:
-            attr_lat, attr_lon = find_lat_lon(self.data, filter_hidden=True)
-            if attr_lat is None or attr_lon is None:
-                # we either find both or none
-                self.Warning.no_lat_lon_vars()
-            else:
-                self.attr_lat, self.attr_lon = attr_lat, attr_lon
+
+        self.lat_lon_model.set_domain(self.data.domain if self.data else None)
+        self.attr_lat, self.attr_lon = lat, lon
 
     @property
     def effective_variables(self):
