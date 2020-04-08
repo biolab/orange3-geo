@@ -44,10 +44,6 @@ if __name__ == '__main__':
         long_description=LONG_DESCRIPTION,
         license='GPL-3.0',
         packages=find_packages(),
-        package_data={
-            'orangecontrib.geo.widgets': ['icons/*',
-                                          '_leaflet/*'],
-        },
         include_package_data=True,
         install_requires=[
             'Orange3>=3.24.0',
