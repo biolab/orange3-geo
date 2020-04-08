@@ -291,7 +291,7 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
         agg_data = self.master.get_agg_data()
         brushes = self.get_colors()
         for ci, d, b in zip(self.choropleth_items, agg_data, brushes):
-            ci.agg_value = d
+            ci.agg_value = self.master.format_agg_val(d)
             ci.setBrush(b)
         self.update_legends()
 
@@ -588,8 +588,10 @@ class OWChoropleth(OWWidget):
     input_changed = Signal(object)
     output_changed = Signal(object)
 
-    class Warning(OWWidget.Warning):
+    class Error(OWWidget.Error):
         no_lat_lon_vars = Msg("Data has no latitude and longitude variables.")
+
+    class Warning(OWWidget.Warning):
         no_region = Msg("{} points are not in any region.")
 
     def __init__(self):
@@ -695,9 +697,9 @@ class OWChoropleth(OWWidget):
 
         self.closeContext()
         self.data = data
-        self.agg_func = DEFAULT_AGG_FUNC
         self.Warning.no_region.clear()
-        self.Warning.no_lat_lon_vars.clear()
+        self.Error.no_lat_lon_vars.clear()
+        self.agg_func = DEFAULT_AGG_FUNC
         self.init_attr_values()
         self.openContext(self.data)
 
@@ -711,21 +713,20 @@ class OWChoropleth(OWWidget):
         self.unconditional_commit()
 
     def init_attr_values(self):
-        domain = self.data.domain if self.data else None
+        lat, lon = None, None
+        if self.data is not None:
+            lat, lon = find_lat_lon(self.data, filter_hidden=True)
+            if lat is None or lon is None:
+                # we either find both or we don't have valid data
+                self.Error.no_lat_lon_vars()
+                self.data = None
+                lat, lon = None, None
+
+        domain = self.data.domain if self.data is not None else None
         self.lat_lon_model.set_domain(domain)
         self.agg_attr_model.set_domain(domain)
-
-        self.agg_attr = None
-        self.attr_lat, self.attr_lon = None, None
-
-        if self.data:
-            self.agg_attr = self.data.domain.class_var
-            attr_lat, attr_lon = find_lat_lon(self.data, filter_hidden=True)
-            if attr_lat is None or attr_lon is None:
-                # we either find both or none
-                self.Warning.no_lat_lon_vars()
-            else:
-                self.attr_lat, self.attr_lon = attr_lat, attr_lon
+        self.agg_attr = domain.class_var if domain is not None else None
+        self.attr_lat, self.attr_lon = lat, lon
 
     def set_input_summary(self, data):
         summary = str(len(data)) if data else self.info.NoInput
@@ -738,13 +739,16 @@ class OWChoropleth(OWWidget):
     def update_agg(self):
         current_agg = self.agg_func
         self.agg_func_combo.clear()
-        new_aggs = list(AGG_FUNCS)
 
         if self.agg_attr is not None:
+            new_aggs = list(AGG_FUNCS)
             if self.agg_attr.is_discrete:
                 new_aggs = [agg for agg in AGG_FUNCS if AGG_FUNCS[agg].disc]
             elif self.agg_attr.is_time:
                 new_aggs = [agg for agg in AGG_FUNCS if AGG_FUNCS[agg].time]
+        else:
+            new_aggs = [DEFAULT_AGG_FUNC]
+
         self.agg_func_combo.addItems(new_aggs)
 
         if current_agg in new_aggs:
@@ -758,10 +762,6 @@ class OWChoropleth(OWWidget):
         self.controls.binning_index.setEnabled(not self.is_mode())
         self.clear()
         self.graph.reset_graph()
-
-    def is_valid(self):
-        return self.attr_lat is not None and \
-               (self.agg_attr is not None or self.agg_func == "Count")
 
     def apply_selection(self):
         if self.data is not None and self.selection is not None:
@@ -783,15 +783,19 @@ class OWChoropleth(OWWidget):
 
     def send_data(self):
         data, graph_sel = self.data, self.graph.get_selection()
-        group_sel, selected_data, ann_data = None, None, None
-        if data is not None and len(data) and self.region_ids is not None:
-            # we get selection by region ids so we have to map it to points
+        selected_data, ann_data = None, None
+        if data:
             group_sel = np.zeros(len(data), dtype=int)
-            for id, s in zip(self.region_ids, graph_sel):
-                if s == 0:
-                    continue
-                id_indices = np.where(self.data_ids == id)[0]
-                group_sel[id_indices] = s
+
+            if len(graph_sel):
+                # we get selection by region ids so we have to map it to points
+                for id, s in zip(self.region_ids, graph_sel):
+                    if s == 0:
+                        continue
+                    id_indices = np.where(self.data_ids == id)[0]
+                    group_sel[id_indices] = s
+            else:
+                graph_sel = [0]
 
             if np.sum(graph_sel) > 0:
                 selected_data = create_groups_table(data, group_sel, False, "Group")
@@ -811,10 +815,10 @@ class OWChoropleth(OWWidget):
             return
 
         if self.is_time():
-            self.binnings = time_binnings(self.agg_data, min_unique=3,
+            self.binnings = time_binnings(self.agg_data,
                                           min_bins=3, max_bins=15)
         else:
-            self.binnings = decimal_binnings(self.agg_data, min_unique=3,
+            self.binnings = decimal_binnings(self.agg_data,
                                              min_bins=3, max_bins=15)
 
         max_bins = len(self.binnings) - 1
@@ -938,7 +942,7 @@ class OWChoropleth(OWWidget):
 
         return self.agg_data
 
-    def _repr_val(self, value):
+    def format_agg_val(self, value):
         if self.agg_func in ('Count', 'Count defined'):
             return f"{value:d}"
         else:
@@ -946,7 +950,8 @@ class OWChoropleth(OWWidget):
 
     def get_choropleth_regions(self) -> List[_ChoroplethRegion]:
         """Recalculate regions"""
-        if not self.is_valid():
+        if self.attr_lat is None:
+            # if we don't have locations we can't compute regions
             return []
 
         _, region_info, polygons = self.get_regions(self.attr_lat,
