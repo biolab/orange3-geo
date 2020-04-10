@@ -629,11 +629,11 @@ class OWChoropleth(OWWidget):
         lat_lon_box = gui.vBox(self.controlArea, True)
         self.lat_lon_model = DomainModel(DomainModel.MIXED,
                                          valid_types=(ContinuousVariable,))
-        gui.comboBox(lat_lon_box, self, 'attr_lon', label='Longitude:',
+        gui.comboBox(lat_lon_box, self, 'attr_lat', label='Latitude:',
                      callback=self.setup_plot, model=self.lat_lon_model,
                      **options)
 
-        gui.comboBox(lat_lon_box, self, 'attr_lat', label='Latitude:',
+        gui.comboBox(lat_lon_box, self, 'attr_lon', label='Longitude:',
                      callback=self.setup_plot, model=self.lat_lon_model,
                      **options)
 
