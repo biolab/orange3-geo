@@ -114,3 +114,6 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
         self.send_signal(self.widget.Inputs.data, None)
         self.assertEqual(info._StateInfo__input_summary.brief, "")
         self.assertEqual(info._StateInfo__output_summary.brief, "")
+
+    def test_none_data(self):
+        self.send_signal(self.widget.Inputs.data, self.data[:0])

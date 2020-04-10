@@ -700,6 +700,7 @@ class OWChoropleth(OWWidget):
         self.Warning.no_region.clear()
         self.Error.no_lat_lon_vars.clear()
         self.agg_func = DEFAULT_AGG_FUNC
+        self.check_data()
         self.init_attr_values()
         self.openContext(self.data)
 
@@ -711,6 +712,11 @@ class OWChoropleth(OWWidget):
         self.update_agg()
         self.apply_selection()
         self.unconditional_commit()
+
+    def check_data(self):
+        if self.data is not None and (len(self.data) == 0 or
+                                      len(self.data.domain) == 0):
+            self.data = None
 
     def init_attr_values(self):
         lat, lon = None, None
