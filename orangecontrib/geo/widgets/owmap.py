@@ -153,11 +153,13 @@ class OWMap(OWDataProjectionWidget):
 
         gui.comboBox(lat_lon_box, self, 'attr_lat', label='Latitude:',
                      callback=self.setup_plot,
-                     model=self.lat_lon_model, **options)
+                     model=self.lat_lon_model, **options,
+                     searchable=True)
 
         gui.comboBox(lat_lon_box, self, 'attr_lon', label='Longitude:',
                      callback=self.setup_plot,
-                     model=self.lat_lon_model, **options)
+                     model=self.lat_lon_model, **options,
+                     searchable=True)
 
         super()._add_controls()
 
