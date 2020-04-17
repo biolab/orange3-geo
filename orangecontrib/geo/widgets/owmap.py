@@ -1,3 +1,6 @@
+from collections import OrderedDict
+from xml.sax.saxutils import escape
+
 import numpy as np
 from AnyQt.QtCore import Qt
 from Orange.data import Table, ContinuousVariable
@@ -237,6 +240,16 @@ class OWMap(OWDataProjectionWidget):
         # when resizing we need to constantly reset the map so that new
         # portions are drawn
         self.graph.update_view_range(match_data=False)
+
+    def _point_tooltip(self, point_id, skip_attrs=()):
+        point_data = self.data[point_id]
+        vars = OrderedDict.fromkeys((self.attr_lat, self.attr_lon,
+                                     self.attr_color, self.attr_shape,
+                                     self.attr_size, self.attr_label))
+        text = "<br/>".join(
+            escape('{} = {}'.format(var.name, point_data[var]))
+            for var in vars if var)
+        return text
 
     @classmethod
     def migrate_settings(cls, _settings, version):
