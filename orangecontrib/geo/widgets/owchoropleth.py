@@ -631,18 +631,18 @@ class OWChoropleth(OWWidget):
                                          valid_types=(ContinuousVariable,))
         gui.comboBox(lat_lon_box, self, 'attr_lat', label='Latitude:',
                      callback=self.setup_plot, model=self.lat_lon_model,
-                     **options)
+                     **options, searchable=True)
 
         gui.comboBox(lat_lon_box, self, 'attr_lon', label='Longitude:',
                      callback=self.setup_plot, model=self.lat_lon_model,
-                     **options)
+                     **options, searchable=True)
 
         agg_box = gui.vBox(self.controlArea, True)
         self.agg_attr_model = DomainModel(valid_types=(ContinuousVariable,
                                                        DiscreteVariable))
         gui.comboBox(agg_box, self, 'agg_attr', label='Attribute:',
                      callback=self.update_agg, model=self.agg_attr_model,
-                     **options)
+                     **options, searchable=True)
 
         self.agg_func_combo = gui.comboBox(agg_box, self, 'agg_func',
                                            label='Agg.:',
