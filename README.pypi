@@ -5,3 +5,10 @@ Orange add-on for dealing with geography and geo-location. It provides widgets
 for visualizing maps and regions, and encoding and decoding geographical data.
 All widgets can be combined with other widgets from the Orange data mining
 framework.
+See [documentation](http://orange3-geo.readthedocs.org/).
+
+Features
+--------
+#### Visualize data on maps
+* show data points on a map
+* color areas in proportion to the data
