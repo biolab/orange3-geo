@@ -8,7 +8,7 @@ cache:
 matrix:
   include:
     - python: '3.6'
-      env: ORANGE="3.25.0"
+      env: ORANGE="3.25.1"
 
     - python: '3.6'
       env: ORANGE="release"
