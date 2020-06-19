@@ -42,6 +42,7 @@ if __name__ == '__main__':
         version=VERSION,
         description="Orange add-on for dealing with geography and geo-location.",
         long_description=LONG_DESCRIPTION,
+        long_description_content_type='text/markdown',
         license='GPL-3.0',
         packages=find_packages(),
         include_package_data=True,
