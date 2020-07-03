@@ -686,7 +686,10 @@ class OWChoropleth(OWWidget):
 
     @property
     def effective_data(self):
-        return self.data.transform(Domain(self.effective_variables))
+        eff_var = self.effective_variables
+        if eff_var and self.attr_lat.name == self.attr_lon.name:
+            eff_var = [self.attr_lat]
+        return self.data.transform(Domain(eff_var))
 
     # Input
     @Inputs.data
