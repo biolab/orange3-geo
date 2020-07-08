@@ -1,6 +1,6 @@
 import numpy as np
 from AnyQt.QtCore import Qt
-from Orange.data import Table, ContinuousVariable
+from Orange.data import Table, Domain, ContinuousVariable
 from Orange.widgets import gui, settings
 from Orange.widgets.utils.widgetpreview import WidgetPreview
 from Orange.widgets.utils.itemmodels import DomainModel
@@ -227,6 +227,13 @@ class OWMap(OWDataProjectionWidget):
     def effective_variables(self):
         return [self.attr_lat, self.attr_lon] \
             if self.attr_lat and self.attr_lon else []
+
+    @property
+    def effective_data(self):
+        eff_var = self.effective_variables
+        if eff_var and self.attr_lat.name == self.attr_lon.name:
+            eff_var = [self.attr_lat]
+        return self.data.transform(Domain(eff_var))
 
     def showEvent(self, ev):
         super().showEvent(ev)
