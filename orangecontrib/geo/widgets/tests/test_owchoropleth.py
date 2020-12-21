@@ -92,9 +92,9 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
 
     def test_send_report(self):
         self.send_signal(self.widget.Inputs.data, self.data)
-        self.widget.report_button.click()
+        self.widget.send_report()
         self.send_signal(self.widget.Inputs.data, None)
-        self.widget.report_button.click()
+        self.widget.send_report()
 
     def test_in_out_summary(self, timeout=5000):
         info = self.widget.info

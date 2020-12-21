@@ -75,6 +75,10 @@ class TestOWGeocoding(WidgetTest):
         self.send_signal(self.widget.Inputs.data, housing)
         self.assertEqual(self.widget.is_decoding, 1)
 
+    def test_minimum_size(self):
+        pass
+
+
 if __name__ == "__main__":
     unittest.main()
 

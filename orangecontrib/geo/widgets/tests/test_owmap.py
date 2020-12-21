@@ -51,6 +51,12 @@ class TestOWMap(WidgetTest, ProjectionWidgetTestMixin, WidgetOutputsTestMixin):
         self.assertTrue(self.widget.Warning.out_of_range.is_shown())
         self.assertEqual(np.sum(self.widget.valid_data), 1)
 
+    def test_send_report(self):
+        self.send_signal(self.widget.Inputs.data, self.data)
+        self.widget.send_report()
+        self.send_signal(self.widget.Inputs.data, None)
+        self.widget.send_report()
+
 
 class MockWidget(OWWidget):
     name = "Mock"
