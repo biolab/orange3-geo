@@ -126,6 +126,7 @@ class ChoroplethItem(pg.GraphicsObject):
         pg.GraphicsObject.__init__(self)
         self.region = region
         self.agg_value = None
+        self.agg_func = None
         self.pen = pen
         self.brush = brush
 
@@ -137,12 +138,11 @@ class ChoroplethItem(pg.GraphicsObject):
 
     @staticmethod
     def _get_region_info(region: _ChoroplethRegion):
-        region_text = "<br/>".join(escape('{} = {}'.format(k, v))
-                                   for k, v in region.info.items())
-        return "<b>Region info:</b><br/>" + region_text
+        return "<b>Region = </b>" + region.info['name']
 
     def tooltip(self):
-        return f"<b>Agg. value = {self.agg_value}</b><hr/>{self._region_info}"
+        return f"<b>{self.agg_func} = {self.agg_value}</b><hr/" \
+               f">{self._region_info}"
 
     def setPen(self, pen):
         self.pen = pen
@@ -292,6 +292,7 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
         brushes = self.get_colors()
         for ci, d, b in zip(self.choropleth_items, agg_data, brushes):
             ci.agg_value = self.master.format_agg_val(d)
+            ci.agg_func = self.master.agg_func
             ci.setBrush(b)
         self.update_legends()
 
