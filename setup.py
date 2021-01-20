@@ -55,6 +55,9 @@ if __name__ == '__main__':
             'simplejson',
             'Pillow'
         ],
+        extras_require = {
+            'test': ['coverage']
+        },
         entry_points=ENTRY_POINTS,
         keywords=(
             'orange3 add-on',

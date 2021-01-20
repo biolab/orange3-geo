@@ -29,6 +29,7 @@ wheels/
 *.egg
 
 # Editor files
+.vscode/
 .idea
 .idea/*
 *~
