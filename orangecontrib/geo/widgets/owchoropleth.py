@@ -605,8 +605,6 @@ class OWChoropleth(OWWidget):
         self.choropleth_regions = []
         self.binnings = []
 
-        self.input_changed.connect(self.set_input_summary)
-        self.output_changed.connect(self.set_output_summary)
         self.setup_gui()
 
     def setup_gui(self):
@@ -718,7 +716,7 @@ class OWChoropleth(OWWidget):
 
     def check_data(self):
         if self.data is not None and (len(self.data) == 0 or
-                                      len(self.data.domain) == 0):
+                                      len(self.data.domain.variables) == 0):
             self.data = None
 
     def init_attr_values(self):
@@ -736,14 +734,6 @@ class OWChoropleth(OWWidget):
         self.agg_attr_model.set_domain(domain)
         self.agg_attr = domain.class_var if domain is not None else None
         self.attr_lat, self.attr_lon = lat, lon
-
-    def set_input_summary(self, data):
-        summary = str(len(data)) if data else self.info.NoInput
-        self.info.set_input_summary(summary)
-
-    def set_output_summary(self, data):
-        summary = str(len(data)) if data else self.info.NoOutput
-        self.info.set_output_summary(summary)
 
     def update_agg(self):
         current_agg = self.agg_func
