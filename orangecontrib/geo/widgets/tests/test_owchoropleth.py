@@ -96,24 +96,5 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
         self.send_signal(self.widget.Inputs.data, None)
         self.widget.send_report()
 
-    def test_in_out_summary(self, timeout=5000):
-        info = self.widget.info
-        self.assertEqual(info._StateInfo__input_summary.brief, "")
-        self.assertEqual(info._StateInfo__output_summary.brief, "")
-
-        self.send_signal(self.widget.Inputs.data, self.data)
-        self.assertTrue(
-            self.signal_manager.wait_for_finished(self.widget, timeout),
-            f"Did not finish in the specified {timeout}ms timeout"
-        )
-        ind = self._select_data()
-        self.assertEqual(info._StateInfo__input_summary.brief,
-                         str(len(self.data)))
-        self.assertEqual(info._StateInfo__output_summary.brief, str(len(ind)))
-
-        self.send_signal(self.widget.Inputs.data, None)
-        self.assertEqual(info._StateInfo__input_summary.brief, "")
-        self.assertEqual(info._StateInfo__output_summary.brief, "")
-
     def test_none_data(self):
         self.send_signal(self.widget.Inputs.data, self.data[:0])

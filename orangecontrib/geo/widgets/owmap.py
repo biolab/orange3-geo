@@ -205,7 +205,7 @@ class OWMap(OWDataProjectionWidget):
         super().check_data()
 
         if self.data is not None and (len(self.data) == 0 or
-                                      len(self.data.domain) == 0):
+                                      len(self.data.domain.variables) == 0):
             self.data = None
 
     def init_attr_values(self):
