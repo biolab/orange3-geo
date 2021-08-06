@@ -52,12 +52,14 @@ if __name__ == '__main__':
             'pandas',
             'scipy>=0.17',
             'shapely',
+            'pyproj',
             'simplejson',
             'Pillow'
         ],
+
         extras_require = {
             'test': ['coverage'],
-            'doc': ['sphinx', 'recommonmark', 'sphinx_rtd_theme'],
+            'doc': ['sphinx', 'recommonmark', 'sphinx_rtd_theme'],  
         },
         entry_points=ENTRY_POINTS,
         keywords=(
