@@ -141,7 +141,7 @@ class OWMap(OWDataProjectionWidget):
         self.lat_lon_model = DomainModel(DomainModel.MIXED,
                                          valid_types=ContinuousVariable)
 
-        lat_lon_box = gui.vBox(self.controlArea, True)
+        lat_lon_box = gui.vBox(self.controlArea, box="Layout", spacing=0)
         options = dict(
             labelWidth=75, orientation=Qt.Horizontal, sendSelectedValue=True,
             valueType=str, contentsLength=14

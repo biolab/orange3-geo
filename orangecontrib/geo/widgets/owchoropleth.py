@@ -626,7 +626,7 @@ class OWChoropleth(OWWidget):
             contentsLength=14
         )
 
-        lat_lon_box = gui.vBox(self.controlArea, True)
+        lat_lon_box = gui.vBox(self.controlArea, box="Map settings", spacing=0)
         self.lat_lon_model = DomainModel(DomainModel.MIXED,
                                          valid_types=(ContinuousVariable,))
         gui.comboBox(lat_lon_box, self, 'attr_lat', label='Latitude:',
@@ -637,10 +637,15 @@ class OWChoropleth(OWWidget):
                      callback=self.setup_plot, model=self.lat_lon_model,
                      **options, searchable=True)
 
-        agg_box = gui.vBox(self.controlArea, True)
+        a_slider = gui.hSlider(lat_lon_box, self, 'admin_level', minValue=0,
+                               maxValue=2, step=1, label='Detail:',
+                               createLabel=False, callback=self.setup_plot)
+        a_slider.setFixedWidth(176)
+
+        agg_box = gui.vBox(self.controlArea, box="Controls", spacing=0)
         self.agg_attr_model = DomainModel(valid_types=(ContinuousVariable,
                                                        DiscreteVariable))
-        gui.comboBox(agg_box, self, 'agg_attr', label='Attribute:',
+        gui.comboBox(agg_box, self, 'agg_attr', label='Values:',
                      callback=self.update_agg, model=self.agg_attr_model,
                      **options, searchable=True)
 
@@ -650,12 +655,7 @@ class OWChoropleth(OWWidget):
                                            callback=self.graph.update_colors,
                                            **options)
 
-        a_slider = gui.hSlider(agg_box, self, 'admin_level', minValue=0,
-                               maxValue=2, step=1, label='Detail:',
-                               createLabel=False, callback=self.setup_plot)
-        a_slider.setFixedWidth(176)
-
-        visualization_box = gui.vBox(self.controlArea, True)
+        visualization_box = gui.vBox(self.controlArea, box=None)
         b_slider = gui.hSlider(visualization_box, self, "binning_index",
                                label="Bin width:", minValue=0,
                                maxValue=max(1, len(self.binnings) - 1),
