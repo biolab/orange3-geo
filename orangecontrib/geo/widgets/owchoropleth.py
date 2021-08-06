@@ -1005,9 +1005,6 @@ class OWChoropleth(OWWidget):
             return
         self.report_plot()
 
-    def sizeHint(self):
-        return QSize(1132, 708)
-
     def onDeleteWidget(self):
         super().onDeleteWidget()
         self.graph.plot_widget.getViewBox().deleteLater()
