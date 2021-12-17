@@ -125,8 +125,8 @@ class ChoroplethItem(pg.GraphicsObject):
     def __init__(self, region: _ChoroplethRegion, pen: QPen, brush: QBrush):
         pg.GraphicsObject.__init__(self)
         self.region = region
-        self.agg_value = None
-        self.agg_func = None
+        self.agg_value = ""
+        self.agg_func = ""
         self.pen = pen
         self.brush = brush
 
@@ -141,8 +141,8 @@ class ChoroplethItem(pg.GraphicsObject):
         return "<b>Region = </b>" + region.info['name']
 
     def tooltip(self):
-        return f"<b>{self.agg_func} = {self.agg_value}</b><hr/" \
-               f">{self._region_info}"
+        return f"<b>{self.agg_func} = {self.agg_value}</b><hr/>" \
+               f"{self._region_info}"
 
     def setPen(self, pen):
         self.pen = pen
