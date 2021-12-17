@@ -609,6 +609,9 @@ class OWChoropleth(OWWidget):
         self.output_changed.connect(self.set_output_summary)
         self.setup_gui()
 
+    def sizeHint(self):
+        return QSize(950, 550)
+
     def setup_gui(self):
         self._add_graph()
         self._add_controls()

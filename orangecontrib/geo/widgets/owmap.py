@@ -132,7 +132,7 @@ class OWMap(OWDataProjectionWidget):
         self.graph.show_internet_error.connect(self._show_internet_error)
 
     def sizeHint(self):
-        return QSize(850, 650)
+        return QSize(950, 550)
 
     def _show_internet_error(self, show):
         if not self.Warning.no_internet.is_shown() and show:
