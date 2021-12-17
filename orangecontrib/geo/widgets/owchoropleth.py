@@ -607,6 +607,9 @@ class OWChoropleth(OWWidget):
 
         self.setup_gui()
 
+    def sizeHint(self):
+        return QSize(950, 550)
+
     def setup_gui(self):
         self._add_graph()
         self._add_controls()
@@ -994,9 +997,6 @@ class OWChoropleth(OWWidget):
         if self.data is None:
             return
         self.report_plot()
-
-    def sizeHint(self):
-        return QSize(1132, 708)
 
     def onDeleteWidget(self):
         super().onDeleteWidget()
