@@ -216,7 +216,8 @@ class OWGeocoding(widget.OWWidget):
                     Domain(self.data.domain.attributes,
                            self.data.domain.class_vars,
                            self.data.domain.metas + metas))
-                output.metas[:, -data.shape[1]:] = data
+                with output.unlocked(output.metas):
+                    output.metas[:, -data.shape[1]:] = data
 
         self.Outputs.coded_data.send(output)
 
