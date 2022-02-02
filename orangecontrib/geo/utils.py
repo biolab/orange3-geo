@@ -6,7 +6,7 @@ from Orange.data import Table
 from Orange.data.domain import filter_visible
 
 
-def find_lat_lon(data, filter_hidden=False):
+def find_lat_lon(data, filter_hidden=False, fallback=True):
     """Return inferred latitude and longitude attributes as found in the data domain"""
     assert isinstance(data, Table)
 
@@ -24,6 +24,9 @@ def find_lat_lon(data, filter_hidden=False):
          attr.name.lower().startswith(('longitude', 'lng', 'long', 'lon'))),
         None)
 
+    if not fallback:
+        return lat_attr, lon_attr
+
     def _all_between(vals, min, max):
         return np.all((min <= vals) & (vals <= max))
 
@@ -37,7 +40,7 @@ def find_lat_lon(data, filter_hidden=False):
                     break
     if not lon_attr:
         for attr in all_vars:
-            if attr.is_continuous:
+            if attr.is_continuous and attr is not lat_attr:
                 values = np.nan_to_num(
                     data.get_column_view(attr)[0].astype(float))
                 if _all_between(values, -180, 180):

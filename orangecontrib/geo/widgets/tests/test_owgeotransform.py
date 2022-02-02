@@ -31,7 +31,7 @@ class TestOWGeoTransform(WidgetTest):
         self.send_signal(self.widget.Inputs.data, iris)
 
         self.assertEqual(self.widget.attr_lat.name, "sepal length")
-        self.assertEqual(self.widget.attr_lon.name, "sepal length")
+        self.assertEqual(self.widget.attr_lon.name, "sepal width")
 
         # test not enough numeric variables
         titanic = Table("titanic")
@@ -140,6 +140,34 @@ class TestOWGeoTransform(WidgetTest):
         np.testing.assert_equal(B, out.X[:, :4])
         np.testing.assert_almost_equal(conv, out.X[:, 4:])
         np.testing.assert_equal(A, out.metas)
+
+        # No variables with proper names, and split between attr and metas
+        vara = [DiscreteVariable("a1", values=tuple(str(i) for i in range(6))),
+                ContinuousVariable("a2")]
+        varb = [DiscreteVariable("b1", values=tuple(str(i) for i in range(12)))
+                ] + [ContinuousVariable(n) for n in ("b2", "b3", "b4")]
+        A = np.arange(6).reshape(3, 2)
+        B = np.arange(12).reshape(3, 4)
+        c = np.array([[384788.0, 128475.0],
+                      [388624.0, 43500.0],
+                      [388668.0, 43394.0]])
+        A[:, 1] = c[:, 0]
+        B[:, 1] = c[:, 1]
+        data = Table.from_numpy(Domain(vara, None, varb), A, None, B)
+
+        # ... replaced
+        widget.replace_original = True
+        self.send_signal(widget.Inputs.data, data)
+        out = self.get_output(widget.Outputs.data)
+        self.assertEqual(names(data), names(out))
+        np.testing.assert_equal(A[:, 0], out.X[:, 0])
+        np.testing.assert_almost_equal(conv[:, 0], out.X[:, 1])
+        np.testing.assert_equal(B[:, 0], out.metas[:, 0])
+        np.testing.assert_almost_equal(conv[:, 1], out.metas[:, 1])
+        np.testing.assert_equal(B[:, 2:], out.metas[:, 2:])
+
+
+
 
 
 if __name__ == "__main__":

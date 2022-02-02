@@ -102,7 +102,8 @@ class OWGeoTransform(OWWidget):
             lat, lon = None, None
             self.data = None
         else:
-            lat, lon = find_lat_lon(self.data, filter_hidden=True)
+            lat, lon = find_lat_lon(
+                self.data, filter_hidden=True, fallback=False)
             if lat is None or lon is None:
                 lat, lon = self.variable_model[:2]
 
