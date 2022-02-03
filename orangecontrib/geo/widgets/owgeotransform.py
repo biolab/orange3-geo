@@ -10,7 +10,7 @@ from orangewidget.widget import Msg
 
 from Orange.widgets import settings
 from Orange.widgets.widget import OWWidget
-from Orange.widgets.utils.itemmodels import DomainModel, PyListModel
+from Orange.widgets.utils.itemmodels import DomainModel, PyListModelTooltip
 from Orange.widgets.utils.signals import Input, Output
 
 from Orange.data import ContinuousVariable, Table, Domain
@@ -86,7 +86,7 @@ class OWGeoTransform(OWWidget):
 
         layout = QFormLayout()
         gui.widgetBox(self.controlArea, "Transformation:", orientation=layout)
-        args["model"] = PyListModel(self.EPSG_CODES)
+        args["model"] = PyListModelTooltip(self.EPSG_CODES, list(self.EPSG_CODES))
         layout.addRow("From:", gui.comboBox(None, self, "from_idx", **args))
         layout.addRow("To:", gui.comboBox(None, self, "to_idx", **args))
 
