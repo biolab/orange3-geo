@@ -158,10 +158,16 @@ class MapViewBox(InteractiveViewBox):
             super().mouseDragEvent(ev, axis=axis)
 
     def mouseClickEvent(self, ev):
-        if ev.button() == Qt.RightButton:
-            ev.ignore()
-        else:
+        if ev.button() != Qt.RightButton and not ev.double():
             super().mouseClickEvent(ev)
+            return
+        center = self.mapToView(ev.pos())
+        if ev.double():
+            self.__zoom_level = self.__clipped_zoom(self.__zoom_level + 1)
+        else:
+            self.__zoom_level = self.__clipped_zoom(self.__zoom_level - 1)
+        self.match_zoom(center, offset=True)
+        ev.accept()
 
     def match_zoom(self, center: Point, offset=False):
         """

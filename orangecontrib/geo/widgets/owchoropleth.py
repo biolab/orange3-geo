@@ -170,7 +170,8 @@ class ChoroplethItem(pg.GraphicsObject):
                    for qpoly in self.region.qpolys)
 
     def mouseClickEvent(self, ev):
-        if ev.button() == Qt.LeftButton and self.contains(ev.pos()):
+        if ev.button() == Qt.LeftButton and self.contains(ev.pos()) \
+                and not ev.double():
             self.itemClicked.emit(self.region.id)
             ev.accept()
         else:
