@@ -63,9 +63,11 @@ class TestMapViewBox(WidgetTest):
 
         self.assertEqual(self.mvb.get_zoom(), 2)
         self.mvb.wheelEvent(mock_event)
+        self.mvb.wheelEvent(mock_event)
         self.assertEqual(self.mvb.get_zoom(), 3)
         qrect1 = self.sr.call_args[0][0]
         mock_event.accept.assert_called()
+        self.mvb.wheelEvent(mock_event)
         self.mvb.wheelEvent(mock_event)
         self.assertEqual(self.mvb.get_zoom(), 4)
         qrect2 = self.sr.call_args[0][0]
@@ -74,11 +76,14 @@ class TestMapViewBox(WidgetTest):
 
         mock_event.delta.return_value = -1
         self.mvb.wheelEvent(mock_event)
+        self.mvb.wheelEvent(mock_event)
         self.assertEqual(self.mvb.get_zoom(), 3)
         qrect3 = self.sr.call_args[0][0]
         # after zooming out the shown rectangle should be larger
         self.assertTrue(qrect3.width() > qrect2.width())
 
+        self.mvb.wheelEvent(mock_event)
+        self.mvb.wheelEvent(mock_event)
         self.mvb.wheelEvent(mock_event)
         self.mvb.wheelEvent(mock_event)
         self.assertEqual(self.mvb.get_zoom(), 2)

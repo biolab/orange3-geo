@@ -122,12 +122,8 @@ class MapViewBox(InteractiveViewBox):
     def wheelEvent(self, ev, axis=None):
         """Override wheel event so we manually track changes of zoom and
         update map accordingly."""
-        if ev.delta() > 0:
-            # zoom-in
-            self.__zoom_level = self.__zoom_in_range(self.__zoom_level + 1)
-        else:
-            # zoom-out
-            self.__zoom_level = self.__zoom_in_range(self.__zoom_level - 1)
+        delta = 0.5 * np.sign(ev.delta())
+        self.__zoom_level = self.__clipped_zoom(self.__zoom_level + delta)
 
         center = Point(fn.invertQTransform(self.childGroup.transform()).map(ev.pos()))
         self.match_zoom(center, offset=True)
@@ -180,7 +176,7 @@ class MapViewBox(InteractiveViewBox):
         self.sigRangeChangedManually.emit(self.state['mouseEnabled'])
 
     def get_zoom(self):
-        return self.__zoom_level
+        return int(self.__zoom_level)
 
     def recalculate_zoom(self, dx: float, dy: float):
         """
@@ -197,12 +193,12 @@ class MapViewBox(InteractiveViewBox):
         dy_tiles = dy_px / self.__tile_provider.size
         zx = int(np.floor(np.log2(dx_tiles / dx)))
         zy = int(np.floor(np.log2(dy_tiles / dy)))
-        self.__zoom_level = self.__zoom_in_range(min(zx, zy))
+        self.__zoom_level = self.__clipped_zoom(min(zx, zy))
 
     def set_tile_provider(self, tp):
         self.__tile_provider = tp
 
-    def __zoom_in_range(self, zoom):
+    def __clipped_zoom(self, zoom):
         """Zoom must always be in range that tile servers provide."""
         return min(self.__tile_provider.max_zoom, max(2, zoom))
 
@@ -228,8 +224,8 @@ class MapViewBox(InteractiveViewBox):
             return 1, 1
         dx_px = self.size().width()
         dy_px = self.size().height()
-        dx = dx_px / (2 ** self.__zoom_level * self.__tile_provider.size)
-        dy = dy_px / (2 ** self.__zoom_level * self.__tile_provider.size)
+        dx = dx_px / (2 ** self.get_zoom() * self.__tile_provider.size)
+        dy = dy_px / (2 ** self.get_zoom() * self.__tile_provider.size)
         return dx, dy
 
 
