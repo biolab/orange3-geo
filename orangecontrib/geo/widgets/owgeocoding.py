@@ -102,7 +102,6 @@ class OWGeocoding(widget.OWWidget):
 
         def _radioChanged():
             self.commit()
-            self.setMainAreaVisibility(self.is_decoding == 0)
 
         modes = gui.radioButtons(top, self, 'is_decoding', callback=_radioChanged)
 
@@ -168,6 +167,7 @@ class OWGeocoding(widget.OWWidget):
                              editTriggers=gui.TableView.AllEditTriggers)
         view.horizontalHeader().setResizeMode(QHeaderView.Stretch)
         view.verticalHeader().setSectionResizeMode(0)
+        view.setMinimumWidth(500)
         view.setModel(model)
 
         owwidget = self
@@ -206,7 +206,7 @@ class OWGeocoding(widget.OWWidget):
         self.info_str = ' /'
         gui.label(box, self, 'Unmatched identifiers: %(info_str)s')
         box.layout().addWidget(view)
-        self.setMainAreaVisibility(self.is_decoding == 0)
+        self.setMainAreaVisibility(False)
 
     def region_attr_changed(self):
         if self.data is None:
@@ -236,6 +236,7 @@ class OWGeocoding(widget.OWWidget):
         self.Outputs.coded_data.send(output)
 
     def decode(self):
+        self.setMainAreaVisibility(False)
         if (self.data is None or not len(self.data) or
                 self.lat_attr not in self.data.domain or
                 self.lon_attr not in self.data.domain):
@@ -250,6 +251,7 @@ class OWGeocoding(widget.OWWidget):
 
     def encode(self):
         if self.data is None or not len(self.data) or self.str_attr not in self.data.domain:
+            self.setMainAreaVisibility(False)
             return None
         values = self._get_data_values()
         log.debug('Geocoding %d regions into coordinates', len(values))
@@ -274,6 +276,7 @@ class OWGeocoding(widget.OWWidget):
 
             self.replacements = sorted(rep_unmatched + rep_matched)
             self.replacementsModel.wrap(self.replacements)
+            self.setMainAreaVisibility(bool(self.replacements))
 
             progress.advance()
             latlon = pd.DataFrame(mappings)
@@ -334,7 +337,6 @@ class OWGeocoding(widget.OWWidget):
 
         self.openContext(data)
         self.region_attr_changed()
-        self.setMainAreaVisibility(self.is_decoding == 0)
 
     def clear(self):
         self.data = None
