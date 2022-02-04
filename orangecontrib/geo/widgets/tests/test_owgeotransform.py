@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import Mock, patch
 from itertools import chain
 
 import numpy as np
@@ -166,8 +167,40 @@ class TestOWGeoTransform(WidgetTest):
         np.testing.assert_almost_equal(conv[:, 1], out.metas[:, 1])
         np.testing.assert_equal(B[:, 2:], out.metas[:, 2:])
 
+    @patch("pyproj.Transformer.itransform", new=lambda *_: np.zeros((10, 2)))
+    def test_report(self):
+        widget = self.widget
+        widget.from_idx = widget.controls.from_idx.model()[0]
 
+        rep = widget.report_items = Mock()
 
+        widget.send_report()
+        rep.assert_not_called()
+
+        fromsys, tosys = widget.from_idx, widget.to_idx
+        widget.replace_original = True
+        self.send_signal(widget.Inputs.data, self.india_data)
+        widget.send_report()
+        items = rep.call_args[0][1]
+        self.assertEqual(fromsys, items[0][1])
+        self.assertEqual(tosys, items[1][1])
+        self.assertFalse(bool(items[3][1]))
+
+        widget.replace_original = False
+        widget.from_idx = widget.controls.from_idx.model()[1]
+
+        # Not applied - no change!
+        widget.send_report()
+        items = rep.call_args[0][1]
+        self.assertEqual(fromsys, items[0][1])
+        self.assertFalse(bool(items[3][1]))
+
+        # Applied - change!
+        widget.apply()
+        widget.send_report()
+        items = rep.call_args[0][1]
+        self.assertEqual(widget.from_idx, items[0][1])
+        self.assertTrue(bool(items[3][1]))
 
 
 if __name__ == "__main__":

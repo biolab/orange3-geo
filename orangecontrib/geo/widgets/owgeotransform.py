@@ -1,4 +1,6 @@
 from itertools import chain
+from dataclasses import dataclass
+from typing import Optional, Tuple
 
 from AnyQt.QtCore import Qt
 from AnyQt.QtWidgets import QFormLayout
@@ -46,6 +48,14 @@ class GeoTransformer(SharedComputeValue):
         return coords[self.column]
 
 
+@dataclass
+class ReportData:
+    coord_names: Tuple[str, str] = ("", "")
+    transf_names: Optional[Tuple[str, str]] = None
+    from_trans: str = ""
+    to_trans: str = ""
+
+
 class OWGeoTransform(OWWidget):
     name = "Geo Transform"
     description = "Transform geographic coordinates from one system to another."
@@ -77,6 +87,7 @@ class OWGeoTransform(OWWidget):
     def __init__(self):
         super().__init__()
         self.data = None
+        self.report_data: Optional[ReportData] = None
 
         layout = QFormLayout()
         gui.widgetBox(self.controlArea, box="Coordinates:", orientation=layout)
@@ -128,8 +139,13 @@ class OWGeoTransform(OWWidget):
     def apply(self):
         if not self.data:
             self.Outputs.data.send(None)
+            self.report_data = None
             return
 
+        self.report_data = ReportData(
+            from_trans=self.from_idx,
+            to_trans=self.to_idx
+        )
         out = self.data.transform(self._transformed_domain())
         self.Outputs.data.send(out)
 
@@ -138,10 +154,15 @@ class OWGeoTransform(OWWidget):
         orig_coords = (self.attr_lat, self.attr_lon)
 
         names = [var.name for var in orig_coords]
-        if not self.replace_original:
+        self.report_data.coord_names = tuple(names)
+        if self.replace_original:
+            self.report_data.transf_names = None
+        else:
             # If appending, use the same names, just with numbers for uniqueness
             existing = [v.name for v in chain(dom.variables, dom.metas)]
             names = get_unique_names(existing, names)
+            self.report_data.transf_names = tuple(names)
+        self.report_data.lat_na = ReportData(*names)
 
         transformer = Transformer.from_crs(
             self.EPSG_CODES[self.from_idx], self.EPSG_CODES[self.to_idx])
@@ -165,6 +186,19 @@ class OWGeoTransform(OWWidget):
         for orig, new in zip(orig_coords, coords):
             (attrs if orig in dom.attributes else metas).append(new)
         return Domain(attrs, dom.class_vars, metas)
+
+    def send_report(self):
+        data = self.report_data
+        if data is None:
+            return
+        self.report_items(
+            "",
+            [("Original system", data.from_trans),
+             ("Conversion to", data.to_trans),
+             ("Coordinate variables", f"{data.coord_names[0]} / {data.coord_names[1]}"),
+             ("Output coordinates",
+              data.transf_names
+              and f"{data.transf_names[0]} / {data.transf_names[1]}")])
 
 
 if __name__ == "__main__":
