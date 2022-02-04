@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 from AnyQt.QtCore import Qt
+from AnyQt.QtGui import QColor, QPalette
 
 import numpy as np
 from pyqtgraph import Point
@@ -14,6 +15,7 @@ from Orange.widgets.tests.base import (
     WidgetTest, WidgetOutputsTestMixin, ProjectionWidgetTestMixin
 )
 from orangecontrib.geo.widgets.owmap import OWMap, OWScatterPlotMapGraph
+from orangecontrib.geo.widgets.plotutils import TILE_PROVIDERS
 
 
 class TestOWMap(WidgetTest, ProjectionWidgetTestMixin, WidgetOutputsTestMixin):
@@ -50,6 +52,32 @@ class TestOWMap(WidgetTest, ProjectionWidgetTestMixin, WidgetOutputsTestMixin):
 
         self.assertTrue(self.widget.Warning.out_of_range.is_shown())
         self.assertEqual(np.sum(self.widget.valid_data), 1)
+
+    def test_label_colors(self):
+        widget = self.widget
+        self.send_signal(widget.Inputs.data, self.data)
+
+        # Pick any
+        for key, provider in TILE_PROVIDERS.items():
+            if provider.dark:
+                dark = key
+            else:
+                bright = key
+
+        white = QColor(Qt.white)
+        palette = widget.graph.plot_widget.palette
+
+        widget.graph.tile_provider_key = dark
+        widget.update_tile_provider()
+        self.assertEqual(palette().color(QPalette.Text), white)
+
+        widget.graph.tile_provider_key = bright
+        widget.update_tile_provider()
+        self.assertNotEqual(palette().color(QPalette.Text), white)
+
+        widget.graph.tile_provider_key = dark
+        widget.update_tile_provider()
+        self.assertEqual(palette().color(QPalette.Text), white)
 
     def test_send_report(self):
         self.send_signal(self.widget.Inputs.data, self.data)
