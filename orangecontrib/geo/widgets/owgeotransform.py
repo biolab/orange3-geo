@@ -114,10 +114,12 @@ class OWGeoTransform(OWWidget):
                                         self.apply)
 
     def init_attr_values(self):
-        self.variable_model.set_domain(self.data.domain if self.data else None)
+        model = self.variable_model
+
+        model.set_domain(self.data.domain if self.data else None)
         self.Error.no_lat_lon_vars.clear()
 
-        if self.variable_model.rowCount() < 2:
+        if model.rowCount() < 2:
             self.Error.no_lat_lon_vars()
             lat, lon = None, None
             self.data = None
@@ -125,7 +127,18 @@ class OWGeoTransform(OWWidget):
             lat, lon = find_lat_lon(
                 self.data, filter_hidden=True, fallback=False)
             if lat is None or lon is None:
-                lat, lon = self.variable_model[:2]
+                if model.rowCount() > 2:
+                    # Otherwise, use the same variable to make it evident that
+                    # this has to be set manually
+                    lat = lon = self.variable_model[0]
+                elif lat is not None:
+                    lon = model[lat == model[0]]
+                elif lon is not None:
+                    lat = model[lon == model[0]]
+                else:
+                    # Use the two you have; assuming the order is likely to be
+                    # lat / long, this is likely correct
+                    lat, lon = model[:2]
 
         self.attr_lat, self.attr_lon = lat, lon
 
