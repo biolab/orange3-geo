@@ -22,6 +22,16 @@
     "icon": "../orangecontrib/geo/widgets/icons/Choropleth.svg",
     "background": "#a0eaa0",
     "keywords": []
+   },
+   {
+    "text": "Geo Transform",
+    "doc": "widgets/geotransform.md",
+    "icon": "../orangecontrib/geo/widgets/icons/GeoTransform.svg",
+    "background": "#a0eaa0",
+    "keywords": [
+     "transform",
+     "geo"
+    ]
    }
   ]
  ]

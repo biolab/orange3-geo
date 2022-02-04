@@ -10,6 +10,7 @@ Widgets
    widgets/geomap
    widgets/geocoding
    widgets/choroplethmap
+   widgets/geotransform
 
 
 Indices and tables
