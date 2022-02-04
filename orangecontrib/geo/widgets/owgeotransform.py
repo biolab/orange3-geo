@@ -14,7 +14,7 @@ from Orange.widgets.utils.itemmodels import DomainModel, PyListModelTooltip
 from Orange.widgets.utils.signals import Input, Output
 
 from Orange.data import ContinuousVariable, Table, Domain
-from Orange.data.util import get_unique_names
+from Orange.data.util import get_unique_names, SharedComputeValue
 
 from orangecontrib.geo.utils import find_lat_lon
 
@@ -24,17 +24,25 @@ def get_projections():
     return {i[2]: f"{i[0]}:{i[1]}" for i in supported_proj}
 
 
-class GeoTransformer:
-    def __init__(self, transformer, var_lat, var_lon, column):
+class GeoTransformerCommon:
+    def __init__(self, transformer, var_lat, var_lon):
         self.transformer = transformer
         self.var_lat, self.var_lon = var_lat, var_lon
-        self.column = column
 
     def __call__(self, data):
         latitude = data.get_column_view(self.var_lat)[0]
         longitude = data.get_column_view(self.var_lon)[0]
         coords = tuple(
             zip(*self.transformer.itransform(zip(latitude, longitude))))
+        return coords
+
+
+class GeoTransformer(SharedComputeValue):
+    def __init__(self, transform, column):
+        super().__init__(transform)
+        self.column = column
+
+    def compute(self, _, coords):
         return coords[self.column]
 
 
@@ -137,10 +145,11 @@ class OWGeoTransform(OWWidget):
 
         transformer = Transformer.from_crs(
             self.EPSG_CODES[self.from_idx], self.EPSG_CODES[self.to_idx])
+        transformer_common = GeoTransformerCommon(transformer, *orig_coords)
         coords = (
             ContinuousVariable(
                 name,
-                compute_value=GeoTransformer(transformer, *orig_coords, col))
+                compute_value=GeoTransformer(transformer_common, col))
             for col, name in enumerate(names))
 
         if self.replace_original:
