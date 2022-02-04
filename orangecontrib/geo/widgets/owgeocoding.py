@@ -7,7 +7,7 @@ from collections import OrderedDict
 
 from AnyQt.QtCore import Qt, QPersistentModelIndex
 from AnyQt.QtWidgets import QComboBox, QItemDelegate, QLineEdit, \
-    QCompleter, QHeaderView
+    QCompleter, QHeaderView, QLayout, QWIDGETSIZE_MAX
 
 from Orange.data import Table, Domain, StringVariable, DiscreteVariable, ContinuousVariable
 from Orange.data.util import get_unique_names
@@ -77,6 +77,21 @@ class OWGeocoding(widget.OWWidget):
     class Warning(widget.OWWidget.Warning):
         logarithmic_nonpositive = widget.Msg("Logarithmic quantization requires all values > 0. Using 'equidistant' quantization instead.")
 
+    def setMainAreaVisibility(self, visible):
+        self.mainArea.setVisible(visible)
+        if visible:
+            constraint = QLayout.SetMinAndMaxSize
+        else:
+            constraint = QLayout.SetFixedSize
+        self.layout().setSizeConstraint(constraint)
+        if visible:
+            # immediately reset the maximum size constraint `setSizeConstraint`
+            # will do this only on scheduled layout
+            self.setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX)
+        self.statusBar().setSizeGripEnabled(visible)
+        self.updateGeometry()
+        self.adjustSize()
+
     def __init__(self):
         super().__init__()
         self.data = None
@@ -86,9 +101,8 @@ class OWGeocoding(widget.OWWidget):
         top = self.controlArea
 
         def _radioChanged():
-            self.mainArea.setVisible(self.is_decoding == 0 and
-                                     len(self.unmatched))
             self.commit()
+            self.setMainAreaVisibility(self.is_decoding == 0)
 
         modes = gui.radioButtons(top, self, 'is_decoding', callback=_radioChanged)
 
@@ -192,7 +206,7 @@ class OWGeocoding(widget.OWWidget):
         self.info_str = ' /'
         gui.label(box, self, 'Unmatched identifiers: %(info_str)s')
         box.layout().addWidget(view)
-        self.mainArea.setVisible(self.is_decoding == 0)
+        self.setMainAreaVisibility(self.is_decoding == 0)
 
     def region_attr_changed(self):
         if self.data is None:
@@ -320,7 +334,7 @@ class OWGeocoding(widget.OWWidget):
 
         self.openContext(data)
         self.region_attr_changed()
-        self.mainArea.setVisible(self.is_decoding == 0 and len(self.replacements))
+        self.setMainAreaVisibility(self.is_decoding == 0)
 
     def clear(self):
         self.data = None
@@ -328,7 +342,6 @@ class OWGeocoding(widget.OWWidget):
             model.set_domain(None)
         self.unmatched = []
         self.str_attr = self.lat_attr = self.lon_attr = None
-        self.mainArea.setVisible(False)
 
     @classmethod
     def migrate_context(cls, context, version):
