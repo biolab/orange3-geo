@@ -48,6 +48,9 @@ class TestOWGeoTransform(WidgetTest):
         self.send_signal(self.widget.Inputs.data, short_iris)
         self.assertTrue(self.widget.Error.no_lat_lon_vars.is_shown())
 
+        self.send_signal(self.widget.Inputs.data, None)
+        self.assertFalse(self.widget.Error.no_lat_lon_vars.is_shown())
+
     def test_data_on_output(self):
         self.send_signal(self.widget.Inputs.data, self.india_data)
         self.widget.replace_original = False

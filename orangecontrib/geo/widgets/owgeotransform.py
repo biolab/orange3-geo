@@ -115,14 +115,14 @@ class OWGeoTransform(OWWidget):
 
     def init_attr_values(self):
         model = self.variable_model
-
         model.set_domain(self.data.domain if self.data else None)
         self.Error.no_lat_lon_vars.clear()
 
         if model.rowCount() < 2:
-            self.Error.no_lat_lon_vars()
             lat, lon = None, None
-            self.data = None
+            if self.data:
+                self.Error.no_lat_lon_vars()
+                self.data = None
         else:
             lat, lon = find_lat_lon(
                 self.data, filter_hidden=True, fallback=False)
