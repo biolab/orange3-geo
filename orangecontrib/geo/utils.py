@@ -6,6 +6,10 @@ from Orange.data import Table
 from Orange.data.domain import filter_visible
 
 
+LATITUDE_NAMES = ('latitude', 'lat')
+LONGITUDE_NAMES = ('longitude', 'lng', 'long', 'lon')
+
+
 def find_lat_lon(data, filter_hidden=False, fallback=True):
     """Return inferred latitude and longitude attributes as found in the data domain"""
     assert isinstance(data, Table)
@@ -17,11 +21,11 @@ def find_lat_lon(data, filter_hidden=False, fallback=True):
     lat_attr = next(
         (attr for attr in all_vars
          if attr.is_continuous and
-         attr.name.lower().startswith(('latitude', 'lat'))), None)
+         attr.name.lower().startswith(LATITUDE_NAMES)), None)
     lon_attr = next(
         (attr for attr in all_vars
          if attr.is_continuous and
-         attr.name.lower().startswith(('longitude', 'lng', 'long', 'lon'))),
+         attr.name.lower().startswith(LONGITUDE_NAMES)),
         None)
 
     if not fallback:

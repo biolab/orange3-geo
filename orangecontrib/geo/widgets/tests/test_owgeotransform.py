@@ -202,6 +202,35 @@ class TestOWGeoTransform(WidgetTest):
         self.assertEqual(widget.from_idx, items[0][1])
         self.assertTrue(bool(items[3][1]))
 
+    @patch("pyproj.Transformer.itransform", new=lambda *_: np.zeros((10, 2)))
+    def test_output_names(self):
+        def names(data):
+            return [var.name for var in data.domain.variables]
+
+        widget = self.widget
+        widget.replace_original = True
+
+        # When replacing, names don't change
+        self.send_signal(widget.Inputs.data, self.india_data)
+        out = self.get_output(widget.Outputs.data)
+        self.assertEqual(names(out), names(self.india_data))
+
+        # When not replacing, sensible names are reused
+        widget.replace_original = False
+        widget.apply()
+        out = self.get_output(widget.Outputs.data)
+        self.assertEqual(
+            names(out),
+            names(self.india_data) + ["Latitude (1)", "Longitude (1)"])
+
+        # Nonsense names are replaced with defeaults
+        widget.attr_lat = self.india_data.domain["Population in 2001"]
+        widget.apply()
+        out = self.get_output(widget.Outputs.data)
+        self.assertEqual(
+            names(out),
+            names(self.india_data) + ["latitude", "longitude"])
+
 
 if __name__ == "__main__":
     unittest.main()

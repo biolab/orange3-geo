@@ -18,7 +18,8 @@ from Orange.widgets.utils.signals import Input, Output
 from Orange.data import ContinuousVariable, Table, Domain
 from Orange.data.util import get_unique_names, SharedComputeValue
 
-from orangecontrib.geo.utils import find_lat_lon
+from orangecontrib.geo.utils import \
+    find_lat_lon, LATITUDE_NAMES, LONGITUDE_NAMES
 
 
 def get_projections():
@@ -158,7 +159,12 @@ class OWGeoTransform(OWWidget):
         if self.replace_original:
             self.report_data.transf_names = None
         else:
-            # If appending, use the same names, just with numbers for uniqueness
+            # If names wouldn't be recognized in following widgets,
+            # replace with defaults
+            if not (names[0].lower().startswith(LATITUDE_NAMES) and
+                    names[1].lower().startswith(LONGITUDE_NAMES)):
+                names = ("latitude", "longitude")
+
             existing = [v.name for v in chain(dom.variables, dom.metas)]
             names = get_unique_names(existing, names)
             self.report_data.transf_names = tuple(names)
