@@ -3,6 +3,8 @@ from unittest import TestCase
 import numpy as np
 
 from orangecontrib.geo.mapper import latlon2region, get_bounding_rect
+from orangecontrib.geo.utils import find_lat_lon
+from Orange.data import Table, Domain, DiscreteVariable, ContinuousVariable
 
 
 class TestUtils(TestCase):
@@ -40,3 +42,57 @@ class TestUtils(TestCase):
     def test_get_bounding_rect(self):
         np.testing.assert_equal(np.array(get_bounding_rect({'SWE', 'ITA'}), dtype=int),
                                 np.r_[12, 42, 14, 62])
+
+    def test_find_lat_lon(self):
+        def attrs_for(*attrs, x=None):
+            if x is None:
+                data = Table.from_domain(Domain(attrs), 0)
+            else:
+                data = Table.from_numpy(Domain(attrs), x)
+            return find_lat_lon(data)
+
+        d1, d2 = [DiscreteVariable(n, values=tuple(str(i) for i in range(6)))
+                  for n in ("d1", "d2")]
+        c1, c2, c3, lat, lon = [ContinuousVariable(n)
+                                for n in "c1 c2 c3 lat lon".split()]
+
+        # match names
+        self.assertEqual(attrs_for(c1, lon, lat, c2), (lat, lon))
+        self.assertEqual(attrs_for(d1, lon, lat, d2), (lat, lon))
+
+        # two numeric variables; one is matched by name
+        self.assertEqual(attrs_for(d1, lon, c2, d2), (c2, lon))
+        self.assertEqual(attrs_for(d1, c2, lon, d2), (c2, lon))
+        self.assertEqual(attrs_for(d1, lat, c2, d2), (lat, c2))
+        self.assertEqual(attrs_for(d1, c2, lat, d2), (lat, c2))
+
+        # two numeric variables, none matched by name, useful range heuristic
+        d = np.array([[0, 12, 8, 1], [0, 45, 120, 0]])
+        self.assertEqual(attrs_for(d1, c1, c2, d2, x=d), (c1, c2))
+
+        d = np.array([[0, 12, 8, 1], [0, 120, 45, 0]])
+        self.assertEqual(attrs_for(d1, c1, c2, d2, x=d), (c2, c1))
+
+
+        # two numeric variables, none matched by name, no range heuristic: use them
+        d = np.array([[0, 12, 8, 1], [0, 13, 45, 0]])
+        self.assertEqual(attrs_for(d1, c1, c2, d2, x=d), (c1, c2))
+
+        d = np.array([[0, 100, 8, 1], [0, 13, 150, 0]])
+        self.assertEqual(attrs_for(d1, c1, c2, d2, x=d), (c1, c2))
+
+        self.assertEqual(attrs_for(d1, c1, c2, d2), (c1, c2))
+
+        # two numeric variables, but latitude out of range
+        d = np.array([[0, 12, 8, 1], [0, 200, 45, 0]])
+        self.assertEqual(attrs_for(d1, c1, c2, d2, x=d), (c1, c1))
+
+        d = np.array([[0, 12, 8, 1], [0, 13, 245, 0]])
+        self.assertEqual(attrs_for(d1, c1, c2, d2, x=d), (c1, c1))
+
+        # more than 2
+        self.assertEqual(attrs_for(d1, c1, c2, lat), (c1, c1))
+        self.assertEqual(attrs_for(d1, lat, c1, c2), (lat, lat))
+        self.assertEqual(attrs_for(d1, c1, c2, lon), (c1, c1))
+        self.assertEqual(attrs_for(d1, lon, c1, c2), (lon, lon))
+        self.assertEqual(attrs_for(d1, c3, c2, c1), (c3, c3))

@@ -172,62 +172,6 @@ class TestOWGeoTransform(WidgetTest):
         np.testing.assert_almost_equal(conv[:, 1], out.metas[:, 1])
         np.testing.assert_equal(B[:, 2:], out.metas[:, 2:])
 
-    def test_coord_detection(self):
-        def use(*attrs):
-            data = Table.from_numpy(Domain(attrs), np.arange(12).reshape(3, 4))
-            self.send_signal(self.widget.Inputs.data, data)
-
-        def coords():
-            return self.widget.attr_lat, self.widget.attr_lon
-
-        self.widget.openContext = Mock()  # prevent remembering from prev test
-        self.widget.apply = Mock()  # just efficiency
-
-        d1, d2 = [DiscreteVariable(n, values=tuple(str(i) for i in range(6)))
-                  for n in ("d1", "d2")]
-        c1, c2, c3, lat, lon = [ContinuousVariable(n)
-                                for n in "c1 c2 c3 lat lon".split()]
-
-        # match names
-        use(c1, lon, lat, c2)
-        self.assertEqual(coords(), (lat, lon))
-        use(d1, lon, lat, d2)
-        self.assertEqual(coords(), (lat, lon))
-
-        # two numeric variables; one is matched by name
-        use(d1, lon, c2, d2)
-        self.assertEqual(coords(), (c2, lon))
-
-        use(d1, c2, lon, d2)
-        self.assertEqual(coords(), (c2, lon))
-
-        use(d1, lat, c2, d2)
-        self.assertEqual(coords(), (lat, c2))
-
-        use(d1, c2, lat, d2)
-        self.assertEqual(coords(), (lat, c2))
-
-        # two numeric variables, none matched by name: use them
-        use(d1, c1, c2, d2)
-        self.assertEqual(coords(), (c1, c2))
-
-        # more than 2
-        use(d1, c1, c2, lat)
-        self.assertEqual(coords(), (c1, c1))
-
-        use(d1, lat, c1, c2)
-        self.assertEqual(coords(), (lat, lat))
-
-        use(d1, c1, c2, lon)
-        self.assertEqual(coords(), (c1, c1))
-
-        use(d1, lon, c1, c2)
-        self.assertEqual(coords(), (lon, lon))
-
-        use(d1, c3, c2, c1)
-        self.assertEqual(coords(), (c3, c3))
-
-
     @patch("pyproj.Transformer.itransform", new=lambda *_: np.zeros((10, 2)))
     def test_report(self):
         widget = self.widget
