@@ -3,6 +3,8 @@ from xml.sax.saxutils import escape
 
 import numpy as np
 from AnyQt.QtCore import Qt, QSize
+from AnyQt.QtGui import QPalette
+
 from Orange.data import Table, Domain, ContinuousVariable
 from Orange.widgets import gui, settings
 from Orange.widgets.utils.widgetpreview import WidgetPreview
@@ -132,6 +134,9 @@ class OWMap(OWDataProjectionWidget):
     def __init__(self):
         super().__init__()
         self._attr_lat, self._attr_lon = None, None
+        self.__default_label_color = \
+            self.graph.plot_widget.palette().color(QPalette.Text)
+        self._update_label_colors()
         self.graph.show_internet_error.connect(self._show_internet_error)
 
     def sizeHint(self):
@@ -154,8 +159,8 @@ class OWMap(OWDataProjectionWidget):
         )
 
         gui.comboBox(lat_lon_box, self, 'graph.tile_provider_key', label='Map:',
-                     items=list(TILE_PROVIDERS.keys()),
-                     callback=self.graph.update_tile_provider, **options)
+                     items=list(TILE_PROVIDERS),
+                     callback=self.update_tile_provider, **options)
 
         gui.comboBox(lat_lon_box, self, 'attr_lat', label='Latitude:',
                      callback=self.setup_plot,
@@ -262,6 +267,22 @@ class OWMap(OWDataProjectionWidget):
             escape('{} = {}'.format(var.name, point_data[var]))
             for var in vars if var)
         return text
+
+    def update_tile_provider(self):
+        self.graph.update_tile_provider()
+        self._update_label_colors()
+
+    def _update_label_colors(self):
+        graph = self.graph
+        palette = graph.plot_widget.palette()
+        if graph.tile_provider.dark:
+            color = Qt.white
+        else:
+            color = self.__default_label_color
+        if palette.color(QPalette.Text) != color:
+            palette.setColor(QPalette.Text, color)
+            graph.plot_widget.setPalette(palette)
+            graph.update_labels()
 
     @classmethod
     def migrate_settings(cls, _settings, version):

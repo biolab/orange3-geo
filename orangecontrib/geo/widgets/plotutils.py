@@ -60,14 +60,12 @@ def tile2norm(x, y, zoom):
     return x / n, y / n
 
 
-_TileProvider = NamedTuple(
-    "_TileProvider", [
-        ("url", str),
-        ("attribution", str),
-        ("size", int),
-        ("max_zoom", int),
-    ]
-)
+class _TileProvider(NamedTuple):
+    url: str
+    attribution: str
+    size: int
+    max_zoom: int
+    dark: bool = False
 
 
 TILE_PROVIDERS = {
@@ -105,7 +103,8 @@ TILE_PROVIDERS = {
         url="http://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
         attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
         size=256,
-        max_zoom=19
+        max_zoom=19,
+        dark=True
     ),
 }
 
@@ -200,6 +199,9 @@ class MapViewBox(InteractiveViewBox):
         zx = int(np.floor(np.log2(dx_tiles / dx)))
         zy = int(np.floor(np.log2(dy_tiles / dy)))
         self.__zoom_level = self.__clipped_zoom(min(zx, zy))
+
+    def tile_provider(self):
+        return self.__tile_provider
 
     def set_tile_provider(self, tp):
         self.__tile_provider = tp
