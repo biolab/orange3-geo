@@ -315,7 +315,7 @@ class ImageLoader(QObject):
             QNetworkRequest.CacheLoadControlAttribute,
             QNetworkRequest.PreferCache
         )
-        request.setAttribute(QNetworkRequest.FollowRedirectsAttribute, True)
+        request.setAttribute(QNetworkRequest.RedirectPolicyAttribute, True)
         request.setMaximumRedirectsAllowed(5)
 
         # Future yielding a QNetworkReply when finished.
