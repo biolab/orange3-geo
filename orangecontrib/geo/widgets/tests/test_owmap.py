@@ -1,3 +1,4 @@
+import unittest
 from unittest.mock import Mock
 
 from AnyQt.QtCore import Qt
@@ -9,8 +10,10 @@ from pyqtgraph import Point
 from Orange.data import Table,  Domain, ContinuousVariable
 from Orange.widgets.widget import OWWidget
 from Orange.widgets.settings import SettingProvider
-from Orange.widgets.utils.colorpalette import ColorPaletteGenerator, \
-    ContinuousPaletteGenerator
+from Orange.widgets.utils.colorpalettes import (
+    DefaultContinuousPalette,
+    LimitedDiscretePalette,
+)
 from Orange.widgets.tests.base import (
     WidgetTest, WidgetOutputsTestMixin, ProjectionWidgetTestMixin
 )
@@ -109,9 +112,9 @@ class MockWidget(OWWidget):
 
     def get_palette(self):
         if self.is_continuous_color():
-            return ContinuousPaletteGenerator(Qt.white, Qt.black, False)
+            return DefaultContinuousPalette
         else:
-            return ColorPaletteGenerator(12)
+            return LimitedDiscretePalette(12)
 
 
 class TestOWScatterPlotMapGraph(WidgetTest):
@@ -163,3 +166,7 @@ class TestOWScatterPlotMapGraph(WidgetTest):
         self.graph.reset_graph()
         self.graph.clear_map.assert_not_called()
         self.graph.update_view_range.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()
