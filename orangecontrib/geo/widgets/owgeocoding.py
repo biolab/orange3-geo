@@ -165,7 +165,7 @@ class OWGeocoding(widget.OWWidget):
                              sortingEnabled=False,
                              selectionMode=gui.TableView.NoSelection,
                              editTriggers=gui.TableView.AllEditTriggers)
-        view.horizontalHeader().setResizeMode(QHeaderView.Stretch)
+        view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         view.verticalHeader().setSectionResizeMode(0)
         view.setMinimumWidth(500)
         view.setModel(model)
