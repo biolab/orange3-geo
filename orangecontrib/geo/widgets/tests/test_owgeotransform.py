@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import Mock, patch
 from itertools import chain
 
 import numpy as np
@@ -31,7 +32,7 @@ class TestOWGeoTransform(WidgetTest):
         self.send_signal(self.widget.Inputs.data, iris)
 
         self.assertEqual(self.widget.attr_lat.name, "sepal length")
-        self.assertEqual(self.widget.attr_lon.name, "sepal width")
+        self.assertEqual(self.widget.attr_lon.name, "sepal length")
 
         # test not enough numeric variables
         titanic = Table("titanic")
@@ -46,6 +47,9 @@ class TestOWGeoTransform(WidgetTest):
             Domain([iris.domain[0], iris.domain.class_var]))
         self.send_signal(self.widget.Inputs.data, short_iris)
         self.assertTrue(self.widget.Error.no_lat_lon_vars.is_shown())
+
+        self.send_signal(self.widget.Inputs.data, None)
+        self.assertFalse(self.widget.Error.no_lat_lon_vars.is_shown())
 
     def test_data_on_output(self):
         self.send_signal(self.widget.Inputs.data, self.india_data)
@@ -158,6 +162,8 @@ class TestOWGeoTransform(WidgetTest):
         # ... replaced
         widget.replace_original = True
         self.send_signal(widget.Inputs.data, data)
+        widget.attr_lat, widget.attr_lon = widget.variable_model[:2]
+        widget.apply()
         out = self.get_output(widget.Outputs.data)
         self.assertEqual(names(data), names(out))
         np.testing.assert_equal(A[:, 0], out.X[:, 0])
@@ -166,8 +172,69 @@ class TestOWGeoTransform(WidgetTest):
         np.testing.assert_almost_equal(conv[:, 1], out.metas[:, 1])
         np.testing.assert_equal(B[:, 2:], out.metas[:, 2:])
 
+    @patch("pyproj.Transformer.itransform", new=lambda *_: np.zeros((10, 2)))
+    def test_report(self):
+        widget = self.widget
+        widget.from_idx = widget.controls.from_idx.model()[0]
 
+        rep = widget.report_items = Mock()
 
+        widget.send_report()
+        rep.assert_not_called()
+
+        fromsys, tosys = widget.from_idx, widget.to_idx
+        widget.replace_original = True
+        self.send_signal(widget.Inputs.data, self.india_data)
+        widget.send_report()
+        items = rep.call_args[0][1]
+        self.assertEqual(fromsys, items[0][1])
+        self.assertEqual(tosys, items[1][1])
+        self.assertFalse(bool(items[3][1]))
+
+        widget.replace_original = False
+        widget.from_idx = widget.controls.from_idx.model()[1]
+
+        # Not applied - no change!
+        widget.send_report()
+        items = rep.call_args[0][1]
+        self.assertEqual(fromsys, items[0][1])
+        self.assertFalse(bool(items[3][1]))
+
+        # Applied - change!
+        widget.apply()
+        widget.send_report()
+        items = rep.call_args[0][1]
+        self.assertEqual(widget.from_idx, items[0][1])
+        self.assertTrue(bool(items[3][1]))
+
+    @patch("pyproj.Transformer.itransform", new=lambda *_: np.zeros((10, 2)))
+    def test_output_names(self):
+        def names(data):
+            return [var.name for var in data.domain.variables]
+
+        widget = self.widget
+        widget.replace_original = True
+
+        # When replacing, names don't change
+        self.send_signal(widget.Inputs.data, self.india_data)
+        out = self.get_output(widget.Outputs.data)
+        self.assertEqual(names(out), names(self.india_data))
+
+        # When not replacing, sensible names are reused
+        widget.replace_original = False
+        widget.apply()
+        out = self.get_output(widget.Outputs.data)
+        self.assertEqual(
+            names(out),
+            names(self.india_data) + ["Latitude (1)", "Longitude (1)"])
+
+        # Nonsense names are replaced with defeaults
+        widget.attr_lat = self.india_data.domain["Population in 2001"]
+        widget.apply()
+        out = self.get_output(widget.Outputs.data)
+        self.assertEqual(
+            names(out),
+            names(self.india_data) + ["latitude", "longitude"])
 
 
 if __name__ == "__main__":

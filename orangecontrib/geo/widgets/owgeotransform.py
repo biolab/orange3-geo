@@ -1,4 +1,6 @@
 from itertools import chain
+from dataclasses import dataclass
+from typing import Optional, Tuple
 
 from AnyQt.QtCore import Qt
 from AnyQt.QtWidgets import QFormLayout
@@ -16,7 +18,8 @@ from Orange.widgets.utils.signals import Input, Output
 from Orange.data import ContinuousVariable, Table, Domain
 from Orange.data.util import get_unique_names, SharedComputeValue
 
-from orangecontrib.geo.utils import find_lat_lon
+from orangecontrib.geo.utils import \
+    find_lat_lon, LATITUDE_NAMES, LONGITUDE_NAMES
 
 
 def get_projections():
@@ -44,6 +47,14 @@ class GeoTransformer(SharedComputeValue):
 
     def compute(self, _, coords):
         return coords[self.column]
+
+
+@dataclass
+class ReportData:
+    coord_names: Tuple[str, str] = ("", "")
+    transf_names: Optional[Tuple[str, str]] = None
+    from_trans: str = ""
+    to_trans: str = ""
 
 
 class OWGeoTransform(OWWidget):
@@ -77,6 +88,7 @@ class OWGeoTransform(OWWidget):
     def __init__(self):
         super().__init__()
         self.data = None
+        self.report_data: Optional[ReportData] = None
 
         layout = QFormLayout()
         gui.widgetBox(self.controlArea, box="Coordinates:", orientation=layout)
@@ -102,18 +114,15 @@ class OWGeoTransform(OWWidget):
                                         self.apply)
 
     def init_attr_values(self):
-        self.variable_model.set_domain(self.data.domain if self.data else None)
         self.Error.no_lat_lon_vars.clear()
+        self.variable_model.set_domain(self.data.domain if self.data else None)
 
-        if self.variable_model.rowCount() < 2:
-            self.Error.no_lat_lon_vars()
-            lat, lon = None, None
-            self.data = None
-        else:
-            lat, lon = find_lat_lon(
-                self.data, filter_hidden=True, fallback=False)
-            if lat is None or lon is None:
-                lat, lon = self.variable_model[:2]
+        lat, lon = None, None
+        if self.data:
+            lat, lon = find_lat_lon(self.data, filter_hidden=True)
+            if not (lat and lon):
+                self.Error.no_lat_lon_vars()
+                self.data = None
 
         self.attr_lat, self.attr_lon = lat, lon
 
@@ -128,8 +137,13 @@ class OWGeoTransform(OWWidget):
     def apply(self):
         if not self.data:
             self.Outputs.data.send(None)
+            self.report_data = None
             return
 
+        self.report_data = ReportData(
+            from_trans=self.from_idx,
+            to_trans=self.to_idx
+        )
         out = self.data.transform(self._transformed_domain())
         self.Outputs.data.send(out)
 
@@ -138,10 +152,20 @@ class OWGeoTransform(OWWidget):
         orig_coords = (self.attr_lat, self.attr_lon)
 
         names = [var.name for var in orig_coords]
-        if not self.replace_original:
-            # If appending, use the same names, just with numbers for uniqueness
+        self.report_data.coord_names = tuple(names)
+        if self.replace_original:
+            self.report_data.transf_names = None
+        else:
+            # If names wouldn't be recognized in following widgets,
+            # replace with defaults
+            if not (names[0].lower().startswith(LATITUDE_NAMES) and
+                    names[1].lower().startswith(LONGITUDE_NAMES)):
+                names = ("latitude", "longitude")
+
             existing = [v.name for v in chain(dom.variables, dom.metas)]
             names = get_unique_names(existing, names)
+            self.report_data.transf_names = tuple(names)
+        self.report_data.lat_na = ReportData(*names)
 
         transformer = Transformer.from_crs(
             self.EPSG_CODES[self.from_idx], self.EPSG_CODES[self.to_idx])
@@ -165,6 +189,19 @@ class OWGeoTransform(OWWidget):
         for orig, new in zip(orig_coords, coords):
             (attrs if orig in dom.attributes else metas).append(new)
         return Domain(attrs, dom.class_vars, metas)
+
+    def send_report(self):
+        data = self.report_data
+        if data is None:
+            return
+        self.report_items(
+            "",
+            [("Original system", data.from_trans),
+             ("Conversion to", data.to_trans),
+             ("Coordinate variables", f"{data.coord_names[0]} / {data.coord_names[1]}"),
+             ("Output coordinates",
+              data.transf_names
+              and f"{data.transf_names[0]} / {data.transf_names[1]}")])
 
 
 if __name__ == "__main__":

@@ -6,45 +6,63 @@ from Orange.data import Table
 from Orange.data.domain import filter_visible
 
 
-def find_lat_lon(data, filter_hidden=False, fallback=True):
-    """Return inferred latitude and longitude attributes as found in the data domain"""
+LATITUDE_NAMES = ('latitude', 'lat')
+LONGITUDE_NAMES = ('longitude', 'lng', 'long', 'lon')
+
+
+def find_lat_lon(data, filter_hidden=False):
+    """
+    Infer latitude and longitude attributes from data
+
+    - If there are less than two numeric variables, return None, None
+    - If there are variables with recognized names (see LATITUDE_NAMES,
+      LONGITUDE_NAMES), return them
+    - Otherwise, if there are exactly two numeric variables
+       - if one has a matching name, the other is chosen to be the other coord
+       - if one has all values below 90 and the other has at least one above,
+        these are latitude and longitude
+       - otherwise, the first one is latitude, the other is longitude
+    - Otherwise (there are more than two variables), return a pair containing
+      the first variable twice, so the user sees a diagonal, which indicates
+      that this has to be set manually.
+    """
     assert isinstance(data, Table)
 
-    all_vars = list(chain(data.domain.variables, data.domain.metas))
+    cont_vars = (var for var in chain(data.domain.variables, data.domain.metas)
+                 if var.is_continuous)
     if filter_hidden:
-        all_vars = list(filter_visible(all_vars))
+        cont_vars = filter_visible(cont_vars)
+    cont_vars = list(cont_vars)
+
+    if len(cont_vars) < 2:
+        return None, None
 
     lat_attr = next(
-        (attr for attr in all_vars
-         if attr.is_continuous and
-         attr.name.lower().startswith(('latitude', 'lat'))), None)
+        (attr for attr in cont_vars
+         if attr.name.lower().startswith(LATITUDE_NAMES)), None)
     lon_attr = next(
-        (attr for attr in all_vars
-         if attr.is_continuous and
-         attr.name.lower().startswith(('longitude', 'lng', 'long', 'lon'))),
-        None)
-
-    if not fallback:
+        (attr for attr in cont_vars
+         if attr.name.lower().startswith(LONGITUDE_NAMES)), None)
+    if lat_attr and lon_attr:
         return lat_attr, lon_attr
 
-    def _all_between(vals, min, max):
-        return np.all((min <= vals) & (vals <= max))
+    def max_in_col(attr):
+        if not data:
+            return 0
+        return np.nanmax(np.abs(data.get_column_view(attr)[0].astype(float)))
 
-    if not lat_attr:
-        for attr in all_vars:
-            if attr.is_continuous:
-                values = np.nan_to_num(
-                    data.get_column_view(attr)[0].astype(float))
-                if _all_between(values, -90, 90):
-                    lat_attr = attr
+    if len(cont_vars) == 2:
+        if lat_attr is not None:
+            lon_attr = cont_vars[1 - cont_vars.index(lat_attr)]
+        elif lon_attr is not None:
+            lat_attr = cont_vars[1 - cont_vars.index(lon_attr)]
+        else:
+            for lat_attr, lon_attr in (cont_vars[::-1], cont_vars):
+                if max_in_col(lat_attr) <= 90 < max_in_col(lon_attr):
                     break
-    if not lon_attr:
-        for attr in all_vars:
-            if attr.is_continuous and attr is not lat_attr:
-                values = np.nan_to_num(
-                    data.get_column_view(attr)[0].astype(float))
-                if _all_between(values, -180, 180):
-                    lon_attr = attr
-                    break
+            if max_in_col(lon_attr) > 180:
+                lat_attr = lon_attr = cont_vars[0]
+    else:
+        lat_attr = lon_attr = cont_vars[0]
 
     return lat_attr, lon_attr
