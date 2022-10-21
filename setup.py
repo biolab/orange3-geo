@@ -4,7 +4,7 @@ from os import path
 from setuptools import setup, find_packages
 
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 README_FILE = path.join(path.dirname(__file__), 'README.pypi')
 LONG_DESCRIPTION = open(README_FILE).read()
