@@ -127,7 +127,7 @@ def init():
 
             # Get representative points for the k-d tree
             points = []
-            polygons = (shape,) if isinstance(shape, Polygon) else shape
+            polygons = (shape,) if isinstance(shape, Polygon) else shape.geoms
             for poly in polygons:
                 points.append([poly.centroid.y, poly.centroid.x])
                 if poly.area > 10:
