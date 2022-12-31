@@ -1,5 +1,4 @@
 import time
-from threading import Thread
 from functools import lru_cache, wraps
 
 from operator import itemgetter
@@ -19,8 +18,7 @@ from orangecontrib.geo.cc_cities import \
     CC_NAME_TO_CC_NAME, REGION_NAME_TO_REGION_NAME, US_STATE_TO_US_STATE,\
     EUROPE_CITIES, US_CITIES, WORLD_CITIES,\
     EUROPE_CITIES_LIST, US_CITIES_LIST, WORLD_CITIES_LIST
-
-
+from orangecontrib.geo.utils import once
 
 log = logging.getLogger(__name__)
 
@@ -59,20 +57,13 @@ if is_shapely_speedups_available():
 def wait_until_loaded(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        global is_done_loading
-        while not is_done_loading:
-            time.sleep(.1)
-        if isinstance(is_done_loading, Exception):
-            raise is_done_loading
+        __load()
         return func(*args, **kwargs)
     return wrapper
 
 
-is_done_loading = False
-
-
-def init():
-    global is_done_loading
+@once
+def __load():
     def _admin_cc(filename):
         parts = path.basename(filename).split('.', 1)[0].split('-')
         admin, cc = parts if len(parts) == 2 else (parts[0], None)
@@ -87,11 +78,10 @@ def init():
 
     files = glob(path.join(GEOJSON_DIR, 'admin*.json'))
     if not files:
-        is_done_loading = RuntimeError(
+        raise RuntimeError(
             'Missing GeoJSON files. '
             'In development environments, merge in the "json"'
             'branch. See CONTRIBUTING.md')
-        raise is_done_loading
 
     log.debug('Loading GeoJSON data ...')
     for filename in files:
@@ -127,7 +117,7 @@ def init():
 
             # Get representative points for the k-d tree
             points = []
-            polygons = (shape,) if isinstance(shape, Polygon) else shape
+            polygons = (shape,) if isinstance(shape, Polygon) else shape.geoms
             for poly in polygons:
                 points.append([poly.centroid.y, poly.centroid.x])
                 if poly.area > 10:
@@ -160,10 +150,6 @@ def init():
 
     global SHAPES, CC_SHAPES, KDTREE, ID_REGIONS, US_STATES
     SHAPES, CC_SHAPES, KDTREE, ID_REGIONS, US_STATES = shapes, cc_shapes, kdtree, id_regions, us_states
-    is_done_loading = True
-    return
-
-Thread(target=init).start()
 
 
 class ToLatLon:

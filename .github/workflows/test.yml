@@ -92,7 +92,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install --upgrade tox tox-pip-version
+          python -m pip install --upgrade tox
 
       - name: Test with Tox
         run: |
