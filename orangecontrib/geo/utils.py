@@ -13,8 +13,8 @@ from Orange.data.domain import filter_visible
 
 T = TypeVar("T")
 
-LATITUDE_NAMES = ('latitude', 'lat')
-LONGITUDE_NAMES = ('longitude', 'lng', 'long', 'lon')
+LATITUDE_NAMES = tuple('latitude, lat'.split(", "))
+LONGITUDE_NAMES = tuple('longitude, lng, long, lon'.split(", "))
 
 
 def find_lat_lon(data, filter_hidden=False):
