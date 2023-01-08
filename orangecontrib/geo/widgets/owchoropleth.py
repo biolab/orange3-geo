@@ -838,7 +838,7 @@ class OWChoropleth(OWWidget):
             self.binnings = decimal_binnings(self.agg_data,
                                              min_bins=3, max_bins=15)
 
-        max_bins = len(self.binnings) - 1
+        max_bins = max(1, len(self.binnings) - 1)
         self.controls.binning_index.setMaximum(max_bins)
         self.binning_index = min(max_bins, self.binning_index)
 
