@@ -71,12 +71,6 @@ class OWGeocoding(widget.OWWidget):
 
     replacements = settings.Setting([], schema_only=True)
 
-    class Error(widget.OWWidget.Error):
-        aggregation_discrete = widget.Msg("Only certain types of aggregation defined on categorical attributes: {}")
-
-    class Warning(widget.OWWidget.Warning):
-        logarithmic_nonpositive = widget.Msg("Logarithmic quantization requires all values > 0. Using 'equidistant' quantization instead.")
-
     def setMainAreaVisibility(self, visible):
         self.mainArea.setVisible(visible)
         if visible:
