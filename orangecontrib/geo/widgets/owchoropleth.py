@@ -19,7 +19,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
+from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable, \
+    TimeVariable
 from Orange.data.util import array_equal
 from Orange.data.sql.table import SqlTable
 from Orange.misc.cache import memoize_method
@@ -548,8 +549,12 @@ AGG_FUNCS = {
     'Std.': AggDesc("std", False, False)
 }
 
-DEFAULT_AGG_FUNC = list(AGG_FUNCS)[0]
-
+DEFAULT_AGG_FUNCS = {
+    DiscreteVariable: "Mode",
+    ContinuousVariable: "Mean",
+    TimeVariable: "Median"
+}
+DEFAULT_AGG_FUNC = "Count"
 
 class OWChoropleth(OWWidget):
     """
@@ -705,7 +710,6 @@ class OWChoropleth(OWWidget):
         self.data = data
         self.Warning.no_region.clear()
         self.Error.no_lat_lon_vars.clear()
-        self.agg_func = DEFAULT_AGG_FUNC
         self.check_data()
         self.init_attr_values()
         self.openContext(self.data)
@@ -746,7 +750,8 @@ class OWChoropleth(OWWidget):
         self.attr_lat, self.attr_lon = lat, lon
 
     def update_agg(self):
-        current_agg = self.agg_func
+        # Store previous aggregation to keep it, unless it was the only choice
+        current_agg = self.agg_func_combo.count() > 1 and self.agg_func
         self.agg_func_combo.clear()
 
         if self.agg_attr is not None:
@@ -763,7 +768,8 @@ class OWChoropleth(OWWidget):
         if current_agg in new_aggs:
             self.agg_func = current_agg
         else:
-            self.agg_func = DEFAULT_AGG_FUNC
+            self.agg_func = DEFAULT_AGG_FUNCS.get(type(self.agg_attr),
+                                                  DEFAULT_AGG_FUNC)
 
         self.graph.update_colors()
 

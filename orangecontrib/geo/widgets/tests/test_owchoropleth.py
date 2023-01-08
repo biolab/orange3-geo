@@ -41,10 +41,12 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
                                           self.data.domain.attributes[-1]))
         self.send_signal(self.widget.Inputs.data, data)
         self.assertIs(self.widget.agg_attr, data.domain.class_var)
+        self.assertEqual(self.widget.agg_func, "Mean")
 
         data = self.data.transform(Domain(self.data.domain.attributes[:-1]))
         self.send_signal(self.widget.Inputs.data, data)
         self.assertIs(self.widget.agg_attr, data.domain.attributes[0])
+        self.assertEqual(self.widget.agg_func, "Mode")
 
     def test_admin_level(self):
         self.send_signal(self.widget.Inputs.data, self.data)
@@ -58,7 +60,9 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
     def test_discrete(self):
         """Test if legend changes on discrete mode"""
         self.send_signal(self.widget.Inputs.data, self.data)
+        self.widget.agg_func = "Count"
         self.widget.admin_level = 1
+        self.widget.setup_plot()
         self.assertIsInstance(self.widget.graph.color_legend.items[0][0],
                               BinningPaletteItemSample)
         self.assertFalse(self.widget.is_mode())
