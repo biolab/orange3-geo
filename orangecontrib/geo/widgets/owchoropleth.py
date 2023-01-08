@@ -737,7 +737,12 @@ class OWChoropleth(OWWidget):
         domain = self.data.domain if self.data is not None else None
         self.lat_lon_model.set_domain(domain)
         self.agg_attr_model.set_domain(domain)
-        self.agg_attr = domain.class_var if domain is not None else None
+        if domain is not None and domain.class_var:
+            self.agg_attr = domain.class_var
+        elif self.agg_attr_model:
+            self.agg_attr = self.agg_attr_model[0]
+        else:
+            self.agg_attr = None
         self.attr_lat, self.attr_lon = lat, lon
 
     def update_agg(self):

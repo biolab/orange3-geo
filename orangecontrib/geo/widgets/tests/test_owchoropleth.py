@@ -3,7 +3,7 @@ import numpy as np
 
 from AnyQt.QtCore import QRectF, QPointF
 
-from Orange.data import Table
+from Orange.data import Table, Domain
 from Orange.widgets.tests.base import WidgetTest, WidgetOutputsTestMixin
 from Orange.widgets.visualize.owscatterplotgraph import SymbolItemSample
 from orangecontrib.geo.widgets.owchoropleth import OWChoropleth, \
@@ -33,6 +33,18 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
 
         self.assertIsNone(self.widget.attr_lat)
         self.assertIsNone(self.widget.attr_lon)
+
+    def test_default_attrs(self):
+        self.assertIsNone(self.widget.agg_attr)
+
+        data = self.data.transform(Domain(self.data.domain.attributes[:-1],
+                                          self.data.domain.attributes[-1]))
+        self.send_signal(self.widget.Inputs.data, data)
+        self.assertIs(self.widget.agg_attr, data.domain.class_var)
+
+        data = self.data.transform(Domain(self.data.domain.attributes[:-1]))
+        self.send_signal(self.widget.Inputs.data, data)
+        self.assertIs(self.widget.agg_attr, data.domain.attributes[0])
 
     def test_admin_level(self):
         self.send_signal(self.widget.Inputs.data, self.data)
