@@ -7,7 +7,7 @@ from Orange.data import Table, Domain
 from Orange.widgets.tests.base import WidgetTest, WidgetOutputsTestMixin
 from Orange.widgets.visualize.owscatterplotgraph import SymbolItemSample
 from orangecontrib.geo.widgets.owchoropleth import OWChoropleth, \
-    BinningPaletteItemSample
+    BinningPaletteItemSample, DEFAULT_AGG_FUNC
 
 
 class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
@@ -60,7 +60,7 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
     def test_discrete(self):
         """Test if legend changes on discrete mode"""
         self.send_signal(self.widget.Inputs.data, self.data)
-        self.widget.agg_func = "Count"
+        self.widget.agg_func = DEFAULT_AGG_FUNC
         self.widget.admin_level = 1
         self.widget.setup_plot()
         self.assertIsInstance(self.widget.graph.color_legend.items[0][0],

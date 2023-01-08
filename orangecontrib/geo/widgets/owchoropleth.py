@@ -537,8 +537,8 @@ AggDesc = NamedTuple("AggDesc", [("transform", Union[str, Callable]),
                                  ("disc", bool), ("time", bool)])
 
 AGG_FUNCS = {
-    'Count': AggDesc("size", True, True),
-    'Count defined': AggDesc("count", True, True),
+    'Instance Count': AggDesc("size", True, True),
+    'Defined Values Count': AggDesc("count", True, True),
     'Sum': AggDesc("sum", False, False),
     'Mean': AggDesc("mean", False, True),
     'Median': AggDesc("median", False, True),
@@ -554,7 +554,9 @@ DEFAULT_AGG_FUNCS = {
     ContinuousVariable: "Mean",
     TimeVariable: "Median"
 }
-DEFAULT_AGG_FUNC = "Count"
+
+COUNT_AGGS = list(AGG_FUNCS)[:2]
+DEFAULT_AGG_FUNC = COUNT_AGGS[0]
 
 class OWChoropleth(OWWidget):
     """
@@ -658,7 +660,7 @@ class OWChoropleth(OWWidget):
                      **options, searchable=True)
 
         self.agg_func_combo = gui.comboBox(agg_box, self, 'agg_func',
-                                           label='Agg.:',
+                                           label='Show:',
                                            items=[DEFAULT_AGG_FUNC],
                                            callback=self.graph.update_colors,
                                            **options)
@@ -844,7 +846,7 @@ class OWChoropleth(OWWidget):
         return self.binnings[self.binning_index]
 
     def get_palette(self):
-        if self.agg_func in ('Count', 'Count defined'):
+        if self.agg_func in COUNT_AGGS:
             return DefaultContinuousPalette
         elif self.is_mode():
             return LimitedDiscretePalette(MAX_COLORS)
@@ -896,7 +898,7 @@ class OWChoropleth(OWWidget):
     def is_time(self):
         return self.agg_attr is not None and \
                self.agg_attr.is_time and \
-               self.agg_func not in ('Count', 'Count defined')
+               self.agg_func not in COUNT_AGGS
 
     @memoize_method(3)
     def get_regions(self, lat_attr, lon_attr, admin):
@@ -958,7 +960,7 @@ class OWChoropleth(OWWidget):
         return self.agg_data
 
     def format_agg_val(self, value):
-        if self.agg_func in ('Count', 'Count defined'):
+        if self.agg_func in COUNT_AGGS:
             return f"{value:d}"
         else:
             return self.agg_attr.repr_val(value)
