@@ -831,16 +831,15 @@ class OWChoropleth(OWWidget):
         if self.is_mode():
             return
 
-        if self.is_time():
-            self.binnings = time_binnings(self.agg_data,
-                                          min_bins=3, max_bins=15)
+        if np.all(np.isnan(self.agg_data)):
+            self.binning = []
         else:
-            self.binnings = decimal_binnings(self.agg_data,
-                                             min_bins=3, max_bins=15)
+            binner = time_binnings if self.is_time() else decimal_binnings
+            self.binnings = binner(self.agg_data, min_bins=3, max_bins=15)
 
-        max_bins = max(1, len(self.binnings) - 1)
-        self.controls.binning_index.setMaximum(max_bins)
-        self.binning_index = min(max_bins, self.binning_index)
+        max_index = len(self.binnings) - 1
+        self.controls.binning_index.setMaximum(max(1, max_index))
+        self.binning_index = min(max_index, self.binning_index)
 
     def get_binning(self) -> BinDefinition:
         return self.binnings[self.binning_index]

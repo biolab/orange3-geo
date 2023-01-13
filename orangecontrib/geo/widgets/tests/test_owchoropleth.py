@@ -112,5 +112,10 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
         self.send_signal(self.widget.Inputs.data, None)
         self.widget.send_report()
 
-    def test_none_data(self):
+    def test_no_data(self):
         self.send_signal(self.widget.Inputs.data, self.data[:0])
+
+        with self.data.unlocked():
+            self.data.X[:] = np.nan
+
+        self.send_signal(self.widget.Inputs.data, self.data)
