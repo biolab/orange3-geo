@@ -113,7 +113,7 @@ def __load():
                         pt = poly_ext.interpolate(dist)
                         r = Point(pt.coords[0])
                 assert r.within(shape)
-                p.update(latitude=r.y, longitude=r.x)
+                p.update({"latitude": r.y, "longitude": r.x})
 
             # Get representative points for the k-d tree
             points = []
