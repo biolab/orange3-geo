@@ -19,7 +19,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
+from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable, \
+    TimeVariable
 from Orange.data.util import array_equal
 from Orange.data.sql.table import SqlTable
 from Orange.misc.cache import memoize_method
@@ -536,8 +537,8 @@ AggDesc = NamedTuple("AggDesc", [("transform", Union[str, Callable]),
                                  ("disc", bool), ("time", bool)])
 
 AGG_FUNCS = {
-    'Count': AggDesc("size", True, True),
-    'Count defined': AggDesc("count", True, True),
+    'Instance Count': AggDesc("size", True, True),
+    'Defined Values Count': AggDesc("count", True, True),
     'Sum': AggDesc("sum", False, False),
     'Mean': AggDesc("mean", False, True),
     'Median': AggDesc("median", False, True),
@@ -548,8 +549,14 @@ AGG_FUNCS = {
     'Std.': AggDesc("std", False, False)
 }
 
-DEFAULT_AGG_FUNC = list(AGG_FUNCS)[0]
+DEFAULT_AGG_FUNCS = {
+    DiscreteVariable: "Mode",
+    ContinuousVariable: "Mean",
+    TimeVariable: "Median"
+}
 
+COUNT_AGGS = list(AGG_FUNCS)[:2]
+DEFAULT_AGG_FUNC = COUNT_AGGS[0]
 
 class OWChoropleth(OWWidget):
     """
@@ -653,7 +660,7 @@ class OWChoropleth(OWWidget):
                      **options, searchable=True)
 
         self.agg_func_combo = gui.comboBox(agg_box, self, 'agg_func',
-                                           label='Agg.:',
+                                           label='Show:',
                                            items=[DEFAULT_AGG_FUNC],
                                            callback=self.graph.update_colors,
                                            **options)
@@ -705,7 +712,6 @@ class OWChoropleth(OWWidget):
         self.data = data
         self.Warning.no_region.clear()
         self.Error.no_lat_lon_vars.clear()
-        self.agg_func = DEFAULT_AGG_FUNC
         self.check_data()
         self.init_attr_values()
         self.openContext(self.data)
@@ -737,11 +743,17 @@ class OWChoropleth(OWWidget):
         domain = self.data.domain if self.data is not None else None
         self.lat_lon_model.set_domain(domain)
         self.agg_attr_model.set_domain(domain)
-        self.agg_attr = domain.class_var if domain is not None else None
+        if domain is not None and domain.class_var:
+            self.agg_attr = domain.class_var
+        elif self.agg_attr_model:
+            self.agg_attr = self.agg_attr_model[0]
+        else:
+            self.agg_attr = None
         self.attr_lat, self.attr_lon = lat, lon
 
     def update_agg(self):
-        current_agg = self.agg_func
+        # Store previous aggregation to keep it, unless it was the only choice
+        current_agg = self.agg_func_combo.count() > 1 and self.agg_func
         self.agg_func_combo.clear()
 
         if self.agg_attr is not None:
@@ -758,7 +770,8 @@ class OWChoropleth(OWWidget):
         if current_agg in new_aggs:
             self.agg_func = current_agg
         else:
-            self.agg_func = DEFAULT_AGG_FUNC
+            self.agg_func = DEFAULT_AGG_FUNCS.get(type(self.agg_attr),
+                                                  DEFAULT_AGG_FUNC)
 
         self.graph.update_colors()
 
@@ -818,22 +831,21 @@ class OWChoropleth(OWWidget):
         if self.is_mode():
             return
 
-        if self.is_time():
-            self.binnings = time_binnings(self.agg_data,
-                                          min_bins=3, max_bins=15)
+        if np.all(np.isnan(self.agg_data)):
+            self.binning = []
         else:
-            self.binnings = decimal_binnings(self.agg_data,
-                                             min_bins=3, max_bins=15)
+            binner = time_binnings if self.is_time() else decimal_binnings
+            self.binnings = binner(self.agg_data, min_bins=3, max_bins=15)
 
-        max_bins = len(self.binnings) - 1
-        self.controls.binning_index.setMaximum(max_bins)
-        self.binning_index = min(max_bins, self.binning_index)
+        max_index = len(self.binnings) - 1
+        self.controls.binning_index.setMaximum(max(1, max_index))
+        self.binning_index = min(max_index, self.binning_index)
 
     def get_binning(self) -> BinDefinition:
         return self.binnings[self.binning_index]
 
     def get_palette(self):
-        if self.agg_func in ('Count', 'Count defined'):
+        if self.agg_func in COUNT_AGGS:
             return DefaultContinuousPalette
         elif self.is_mode():
             return LimitedDiscretePalette(MAX_COLORS)
@@ -885,7 +897,7 @@ class OWChoropleth(OWWidget):
     def is_time(self):
         return self.agg_attr is not None and \
                self.agg_attr.is_time and \
-               self.agg_func not in ('Count', 'Count defined')
+               self.agg_func not in COUNT_AGGS
 
     @memoize_method(3)
     def get_regions(self, lat_attr, lon_attr, admin):
@@ -947,7 +959,7 @@ class OWChoropleth(OWWidget):
         return self.agg_data
 
     def format_agg_val(self, value):
-        if self.agg_func in ('Count', 'Count defined'):
+        if self.agg_func in COUNT_AGGS:
             return f"{value:d}"
         else:
             return self.agg_attr.repr_val(value)

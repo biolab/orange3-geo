@@ -3,11 +3,11 @@ import numpy as np
 
 from AnyQt.QtCore import QRectF, QPointF
 
-from Orange.data import Table
+from Orange.data import Table, Domain
 from Orange.widgets.tests.base import WidgetTest, WidgetOutputsTestMixin
 from Orange.widgets.visualize.owscatterplotgraph import SymbolItemSample
 from orangecontrib.geo.widgets.owchoropleth import OWChoropleth, \
-    BinningPaletteItemSample
+    BinningPaletteItemSample, DEFAULT_AGG_FUNC
 
 
 class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
@@ -34,6 +34,20 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
         self.assertIsNone(self.widget.attr_lat)
         self.assertIsNone(self.widget.attr_lon)
 
+    def test_default_attrs(self):
+        self.assertIsNone(self.widget.agg_attr)
+
+        data = self.data.transform(Domain(self.data.domain.attributes[:-1],
+                                          self.data.domain.attributes[-1]))
+        self.send_signal(self.widget.Inputs.data, data)
+        self.assertIs(self.widget.agg_attr, data.domain.class_var)
+        self.assertEqual(self.widget.agg_func, "Mean")
+
+        data = self.data.transform(Domain(self.data.domain.attributes[:-1]))
+        self.send_signal(self.widget.Inputs.data, data)
+        self.assertIs(self.widget.agg_attr, data.domain.attributes[0])
+        self.assertEqual(self.widget.agg_func, "Mode")
+
     def test_admin_level(self):
         self.send_signal(self.widget.Inputs.data, self.data)
         self.widget.admin_level = 0
@@ -46,7 +60,9 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
     def test_discrete(self):
         """Test if legend changes on discrete mode"""
         self.send_signal(self.widget.Inputs.data, self.data)
+        self.widget.agg_func = DEFAULT_AGG_FUNC
         self.widget.admin_level = 1
+        self.widget.setup_plot()
         self.assertIsInstance(self.widget.graph.color_legend.items[0][0],
                               BinningPaletteItemSample)
         self.assertFalse(self.widget.is_mode())
@@ -96,5 +112,10 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
         self.send_signal(self.widget.Inputs.data, None)
         self.widget.send_report()
 
-    def test_none_data(self):
+    def test_no_data(self):
         self.send_signal(self.widget.Inputs.data, self.data[:0])
+
+        with self.data.unlocked():
+            self.data.X[:] = np.nan
+
+        self.send_signal(self.widget.Inputs.data, self.data)
