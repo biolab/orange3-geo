@@ -1,7 +1,5 @@
 # pylint: disable=protected-access
 import unittest
-import numpy as np
-import pandas as pd
 
 from Orange.data import Table, Domain, DiscreteVariable
 from Orange.widgets.tests.base import WidgetTest
@@ -81,4 +79,3 @@ class TestOWGeocoding(WidgetTest):
 
 if __name__ == "__main__":
     unittest.main()
-

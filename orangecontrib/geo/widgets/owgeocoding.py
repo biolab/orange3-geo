@@ -235,8 +235,8 @@ class OWGeocoding(widget.OWWidget):
                 self.lat_attr not in self.data.domain or
                 self.lon_attr not in self.data.domain):
             return None
-        latlon = np.c_[self.data.get_column_view(self.lat_attr)[0],
-                       self.data.get_column_view(self.lon_attr)[0]]
+        latlon = np.c_[self.data.get_column(self.lat_attr),
+                       self.data.get_column(self.lon_attr)]
         assert isinstance(self.admin, int)
         with self.progressBar(2) as progress:
             progress.advance()
@@ -280,7 +280,7 @@ class OWGeocoding(widget.OWWidget):
         if self.data is None:
             return None
 
-        values = self.data.get_column_view(self.str_attr)[0]
+        values = self.data.get_column(self.str_attr)
         # no comment
         if self.str_attr.is_discrete:
             values = np.array(self.str_attr.values)[values.astype(np.int16)].astype(str)

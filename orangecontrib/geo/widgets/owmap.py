@@ -155,7 +155,7 @@ class OWMap(OWDataProjectionWidget):
         lat_lon_box = gui.vBox(self.controlArea, box="Layout", spacing=0)
         options = dict(
             labelWidth=75, orientation=Qt.Horizontal, sendSelectedValue=True,
-            valueType=str, contentsLength=14
+            contentsLength=14
         )
 
         gui.comboBox(lat_lon_box, self, 'graph.tile_provider_key', label='Map:',
