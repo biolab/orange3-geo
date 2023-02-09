@@ -56,7 +56,7 @@ def find_lat_lon(data, filter_hidden=False):
     def max_in_col(attr):
         if not data:
             return 0
-        return np.nanmax(np.abs(data.get_column_view(attr)[0].astype(float)))
+        return np.nanmax(np.abs(data.get_column(attr).astype(float)))
 
     if len(cont_vars) == 2:
         if lat_attr is not None:

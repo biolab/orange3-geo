@@ -1,3 +1,4 @@
+import unittest
 from unittest.mock import patch
 import numpy as np
 
@@ -119,3 +120,7 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
             self.data.X[:] = np.nan
 
         self.send_signal(self.widget.Inputs.data, self.data)
+
+
+if __name__ == "__main__":
+    unittest.main()

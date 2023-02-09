@@ -908,8 +908,7 @@ class OWChoropleth(OWWidget):
             dict of region ids matched to their additional info,
             dict of region ids matched to their polygon
         """
-        latlon = np.c_[self.data.get_column_view(lat_attr)[0],
-                       self.data.get_column_view(lon_attr)[0]]
+        latlon = np.c_[self.data.get_column(lat_attr), self.data.get_column(lon_attr)]
         region_info = latlon2region(latlon, admin)
         ids = np.array([region.get('_id') for region in region_info])
         region_info = {info.get('_id'): info for info in region_info}
@@ -931,7 +930,7 @@ class OWChoropleth(OWWidget):
             Series of aggregated values
         """
         if attr is not None:
-            data = self.data.get_column_view(attr)[0]
+            data = self.data.get_column(attr)
         else:
             data = np.ones(len(self.data))
 

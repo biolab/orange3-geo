@@ -33,8 +33,8 @@ class GeoTransformerCommon:
         self.var_lat, self.var_lon = var_lat, var_lon
 
     def __call__(self, data):
-        latitude = data.get_column_view(self.var_lat)[0]
-        longitude = data.get_column_view(self.var_lon)[0]
+        latitude = data.get_column(self.var_lat)
+        longitude = data.get_column(self.var_lon)
         coords = tuple(
             zip(*self.transformer.itransform(zip(latitude, longitude))))
         return coords
