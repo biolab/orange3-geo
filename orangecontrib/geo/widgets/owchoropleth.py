@@ -594,7 +594,7 @@ AGG_FUNCS = {
     'Sum': AggDesc("sum", False, False),
     'Mean': AggDesc("mean", False, True),
     'Median': AggDesc("median", False, True),
-    'Mode': AggDesc(lambda x: stats.mode(x, nan_policy='omit').mode[0],
+    'Mode': AggDesc(lambda x: stats.mode(x, nan_policy='omit', keepdims=True).mode[0],
                     True, True),
     'Maximal': AggDesc("max", False, True),
     'Minimal': AggDesc("min", False, True),
