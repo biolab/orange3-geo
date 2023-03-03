@@ -147,7 +147,7 @@ class MapViewBox(InteractiveViewBox):
             self.match_zoom(rect.center())
 
         if self.graph.state == ZOOMING \
-                and ev.button() & (Qt.LeftButton | Qt.MidButton) \
+                and ev.button() & (Qt.LeftButton | Qt.MiddleButton) \
                 and self.state['mouseMode'] == ViewBox.RectMode \
                 and ev.isFinish():
             zoom()
