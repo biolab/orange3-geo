@@ -30,11 +30,12 @@ def guess_region_attr_name(data):
 
 
 class OWGeocoding(widget.OWWidget):
-    name = 'Geocoding'
+    name = "Geocoding"
     description = 'Encode region names into geographical coordinates, or ' \
                   'reverse-geocode latitude and longitude pairs into regions.'
     icon = "icons/Geocoding.svg"
     priority = 40
+    keywords = "geocoding, geo, coding"
 
     class Inputs:
         data = Input("Data", Table, default=True)

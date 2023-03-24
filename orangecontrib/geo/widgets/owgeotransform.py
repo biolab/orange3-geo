@@ -62,7 +62,7 @@ class OWGeoTransform(OWWidget):
     description = "Transform geographic coordinates from one system to another."
     icon = "icons/GeoTransform.svg"
     priority = 320
-    keywords = ["transform", "geo"]
+    keywords = "geo transform, transform, geo"
 
     class Inputs:
         data = Input("Data", Table)
