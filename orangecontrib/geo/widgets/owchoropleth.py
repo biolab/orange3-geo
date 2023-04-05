@@ -644,7 +644,7 @@ class OWChoropleth(OWWidget):
 
     GRAPH_CLASS = OWChoroplethPlotMapGraph
     graph = SettingProvider(OWChoroplethPlotMapGraph)
-    graph_name = "graph.plot_widget.plotItem"
+    graph_name = "graph.plot_widget.plotItem"  # pg.GraphicsItem  (pg.PlotItem)
 
     input_changed = Signal(object)
     output_changed = Signal(object)
