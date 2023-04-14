@@ -7,21 +7,32 @@
     "doc": "widgets/geocoding.md",
     "icon": "../orangecontrib/geo/widgets/icons/Geocoding.svg",
     "background": "#a0eaa0",
-    "keywords": []
+    "keywords": [
+     "geocoding",
+     "geo",
+     "coding"
+    ]
    },
    {
     "text": "Geo Map",
     "doc": "widgets/geomap.md",
     "icon": "../orangecontrib/geo/widgets/icons/GeoMap.svg",
     "background": "#a0eaa0",
-    "keywords": []
+    "keywords": [
+     "geo map",
+     "map",
+     "geo"
+    ]
    },
    {
     "text": "Choropleth Map",
     "doc": "widgets/choroplethmap.md",
     "icon": "../orangecontrib/geo/widgets/icons/Choropleth.svg",
     "background": "#a0eaa0",
-    "keywords": []
+    "keywords": [
+     "choropleth map",
+     "geo"
+    ]
    },
    {
     "text": "Geo Transform",
@@ -29,6 +40,7 @@
     "icon": "../orangecontrib/geo/widgets/icons/GeoTransform.svg",
     "background": "#a0eaa0",
     "keywords": [
+     "geo transform",
      "transform",
      "geo"
     ]

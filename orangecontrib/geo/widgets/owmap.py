@@ -98,10 +98,11 @@ class OWMap(OWDataProjectionWidget):
     background.
     """
 
-    name = 'Geo Map'
+    name = "Geo Map"
     description = 'Show data points on a world map.'
     icon = "icons/GeoMap.svg"
     priority = 100
+    keywords = "geo map, map, geo"
 
     replaces = [
         "Orange.widgets.visualize.owmap.OWMap",

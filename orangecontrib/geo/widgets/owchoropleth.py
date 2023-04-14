@@ -616,11 +616,12 @@ class OWChoropleth(OWWidget):
     `OWChoroplethPlotGraph` is to `OWScatterPlotBase`.
     """
 
-    name = 'Choropleth Map'
+    name = "Choropleth Map"
     description = 'A thematic map in which areas are shaded in proportion ' \
                   'to the measurement of the statistical variable being displayed.'
     icon = "icons/Choropleth.svg"
     priority = 120
+    keywords = "choropleth map, geo"
 
     class Inputs:
         data = Input("Data", Table, default=True)
