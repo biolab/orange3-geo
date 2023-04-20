@@ -1,5 +1,8 @@
 # Category metadata.
 
+NAME = "Geo"
+DESCRIPTION = "Transformation and visualization of geographical data."
+
 # Category icon show in the menu
 ICON = "icons/category.svg"
 
