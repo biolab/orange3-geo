@@ -1,0 +1,1415 @@
+__init__.py:
+    datasets: false
+    get_column: false
+cc_cities.py:
+    Kosovo: false
+    Kosovo, Republic of: false
+    Åland: false
+    Åland Islands: false
+    Aland: false
+    Bosnia and Herz.: false
+    Bosnia and Herzegovina: false
+    Czechia: false
+    Czech Rep.: false
+    Czech Republic: false
+    Faeroe Is.: false
+    Faroe Islands: false
+    Faeroe Islands: false
+    United Kingdom: false
+    Great Britain: false
+    England: false
+    Moldova: false
+    Moldova, Republic of: false
+    Macedonia: false
+    Macedonia, Republic of: false
+    Palestine: false
+    Palestine, State of: false
+    Russia: false
+    Russian Federation: false
+    Syria: false
+    Syrian Arab Republic: false
+    Brunei: false
+    Brunei Darussalam: false
+    Bolivia: false
+    Bolivia, Plurinational State of: false
+    Dem. Rep. Congo: false
+    Democratic Republic of the Congo: false
+    Democratic Republic of Congo: false
+    Congo, The Democratic Republic of the: false
+    Central African Rep.: false
+    Central African Republic: false
+    Dominican Rep.: false
+    Dominican Republic: false
+    W. Sahara: false
+    Western Sahara: false
+    Falkland Is.: false
+    Falkland Islands [Malvinas]: false
+    Falkland Islands: false
+    Malvinas: false
+    Eq. Guinea: false
+    Equatorial Guinea: false
+    Iran: false
+    Iran, Islamic Republic of: false
+    North Korea: false
+    Korea, Democratic People's Republic of: false
+    Democratic Republic of Korea: false
+    Dem. Rep. Korea: false
+    South Korea: false
+    Korea, Republic of: false
+    Korea: false
+    Laos: false
+    Lao People's Democratic Republic: false
+    Lao PDR: false
+    Solomon Is.: false
+    Solomon Islands: false
+    S. Sudan: false
+    South Sudan: false
+    Taiwan: false
+    Taiwan, Province of China: false
+    Tanzania: false
+    Tanzania, United Republic of: false
+    United States of America: false
+    United States: false
+    Venezuela: false
+    Venezuela, Bolivarian Republic of: false
+    Vietnam: false
+    Viet Nam: false
+    Apace: false
+    Apače: false
+    Braslovce: false
+    Braslovče: false
+    Crnomelj: false
+    Črnomelj: false
+    Divaca: false
+    Divača: false
+    Hoce-Slivnica: false
+    Hoče-Slivnica: false
+    Hoče - Slivnica: false
+    Ivancna Gorica: false
+    Ivančna Gorica: false
+    Kidricevo: false
+    Kidričevo: false
+    Kocevje: false
+    Kočevje: false
+    Luce: false
+    Luče: false
+    Mirna Pec: false
+    Mirna Peč: false
+    Moravce: false
+    Moravče: false
+    Nova Goriška: false
+    Nova Gorica: false
+    Novo Mesto: false
+    Novo mesto: false
+    Podcetrtek: false
+    Podčetrtek: false
+    Poljcane: false
+    Poljčane: false
+    Race-Fram: false
+    Rače-Fram: false
+    Rače - Fram: false
+    Radece: false
+    Radeče: false
+    Ravne na Koroškem: false
+    Ravne: false
+    Semic: false
+    Semič: false
+    Šmartno in Litiji: false
+    Šmartno pri Litiji: false
+    Solcava: false
+    Solčava: false
+    Sveti Andraž v Slovenskih Goricah: false
+    Sveti Andraž v Slovenskih goricah: false
+    Sveti Andraž v Slov. goricah: false
+    Sveti Andraž v Slov.goricah: false
+    Sveti Andraž v Sloven. goricah: false
+    Zasavska: false
+    Zagorje ob Savi: false
+    Zavrc: false
+    Zavrč: false
+    Zrece: false
+    Zreče: false
+    Koper: false
+    Koper/Capodistria: false
+    Piran: false
+    Piran/Pirano: false
+    Izola: false
+    Izola/Isola: false
+    Ankaran: false
+    Ankaran/Ancarano: false
+    Lendava: false
+    Lendava/Lendva: false
+    Dobrovnik: false
+    Dobrovnik/Dobronak: false
+    Hodoš: false
+    Hodoš/Hodos: false
+    Šempeter-Vrtojba: false
+    Šempeter - Vrtojba: false
+    Miren-Kostanjevica: false
+    Miren - Kostanjevica: false
+    Hrpelje-Kozina: false
+    Hrpelje - Kozina: false
+    Gorenja vas-Poljane: false
+    Gorenja vas - Poljane: false
+    Dobrova-Polhov Gradec: false
+    Dobrova - Polhov Gradec: false
+    NC: false
+    North Carolina: false
+    N. Carolina: false
+    ND: false
+    North Dakota: false
+    N. Dakota: false
+    SC: false
+    South Carolina: false
+    S. Carolina: false
+    SD: false
+    South Dakota: false
+    S. Dakota: false
+    AK: false
+    Anchorage: false
+    AL: false
+    Birmingham: false
+    Montgomery: false
+    Mobile: false
+    Huntsville: false
+    AR: false
+    Little Rock: false
+    AZ: false
+    Phoenix: false
+    Tucson: false
+    Mesa: false
+    Chandler: false
+    Gilbert: false
+    Glendale: false
+    Scottsdale: false
+    Tempe: false
+    Peoria: false
+    Surprise: false
+    CA: false
+    Los Angeles: false
+    San Diego: false
+    San Jose: false
+    San Francisco: false
+    Fresno: false
+    Sacramento: false
+    Long Beach: false
+    Oakland: false
+    Bakersfield: false
+    Anaheim: false
+    Santa Ana: false
+    Riverside: false
+    Stockton: false
+    Chula Vista: false
+    Irvine: false
+    Fremont: false
+    San Bernardino: false
+    Modesto: false
+    Oxnard: false
+    Fontana: false
+    Moreno Valley: false
+    Huntington Beach: false
+    Santa Clarita: false
+    Garden Grove: false
+    Oceanside: false
+    Rancho Cucamonga: false
+    Santa Rosa: false
+    Ontario: false
+    Elk Grove: false
+    Corona: false
+    Lancaster: false
+    Palmdale: false
+    Salinas: false
+    Hayward: false
+    Pomona: false
+    Escondido: false
+    Sunnyvale: false
+    Torrance: false
+    Pasadena: false
+    Orange: false
+    Fullerton: false
+    Thousand Oaks: false
+    Visalia: false
+    Roseville: false
+    Concord: false
+    Simi Valley: false
+    Santa Clara: false
+    Victorville: false
+    Vallejo: false
+    Berkeley: false
+    El Monte: false
+    Downey: false
+    Costa Mesa: false
+    Carlsbad: false
+    Inglewood: false
+    Fairfield: false
+    Ventura: false
+    Temecula: false
+    Antioch: false
+    Richmond: false
+    West Covina: false
+    Murrieta: false
+    Norwalk: false
+    Daly City: false
+    Burbank: false
+    Santa Maria: false
+    El Cajon: false
+    San Mateo: false
+    Rialto: false
+    Clovis: false
+    East Los Angeles: false
+    CO: false
+    Denver: false
+    Colorado Springs: false
+    Aurora: false
+    Fort Collins: false
+    Lakewood: false
+    Thornton: false
+    Arvada: false
+    Westminster: false
+    Pueblo: false
+    Centennial: false
+    Boulder: false
+    CT: false
+    Bridgeport: false
+    New Haven: false
+    Stamford: false
+    Hartford: false
+    Waterbury: false
+    DE: false
+    Dover: false
+    DC: false
+    Washington: false
+    Washington, D.C.: false
+    Washington D.C.: false
+    Washington DC: false
+    D.C.: false
+    FL: false
+    Jacksonville: false
+    Miami: false
+    Tampa: false
+    Orlando: false
+    St. Petersburg: false
+    Hialeah: false
+    Tallahassee: false
+    Fort Lauderdale: false
+    Port St. Lucie: false
+    Cape Coral: false
+    Pembroke Pines: false
+    Hollywood: false
+    Miramar: false
+    Gainesville: false
+    Coral Springs: false
+    Miami Gardens: false
+    Clearwater: false
+    Pompano Beach: false
+    Palm Bay: false
+    West Palm Beach: false
+    Lakeland: false
+    Brandon: false
+    GA: false
+    Atlanta: false
+    Columbus: false
+    Augusta: false
+    Macon: false
+    Savannah: false
+    Athens: false
+    Sandy Springs: false
+    HI: false
+    Honolulu: false
+    IA: false
+    Des Moines: false
+    Cedar Rapids: false
+    Davenport: false
+    ID: false
+    Boise: false
+    IL: false
+    Chicago: false
+    Rockford: false
+    Joliet: false
+    Naperville: false
+    Springfield: false
+    Elgin: false
+    IN: false
+    Indianapolis: false
+    Fort Wayne: false
+    Evansville: false
+    South Bend: false
+    KS: false
+    Wichita: false
+    Overland Park: false
+    Kansas City: false
+    Olathe: false
+    Topeka: false
+    KY: false
+    Louisville: false
+    Lexington: false
+    LA: false
+    New Orleans: false
+    Baton Rouge: false
+    Shreveport: false
+    Lafayette: false
+    Metairie: false
+    MA: false
+    Boston: false
+    Worcester: false
+    Lowell: false
+    Cambridge: false
+    MD: false
+    Annapolis: false
+    Baltimore: false
+    ME: false
+    Portland: false
+    MI: false
+    Detroit: false
+    Grand Rapids: false
+    Warren: false
+    Sterling Heights: false
+    Ann Arbor: false
+    Lansing: false
+    MN: false
+    Minneapolis: false
+    St. Paul: false
+    Rochester: false
+    MO: false
+    St. Louis: false
+    Independence: false
+    Columbia: false
+    MS: false
+    Jackson: false
+    MT: false
+    Billings: false
+    Charlotte: false
+    Raleigh: false
+    Greensboro: false
+    Durham: false
+    Winston–Salem: false
+    Fayetteville: false
+    Cary: false
+    Wilmington: false
+    High Point: false
+    Fargo: false
+    NE: false
+    Omaha: false
+    Lincoln: false
+    NH: false
+    Manchester: false
+    NJ: false
+    Newark: false
+    Jersey City: false
+    Paterson: false
+    Elizabeth: false
+    NM: false
+    Albuquerque: false
+    Las Cruces: false
+    NV: false
+    Las Vegas: false
+    Henderson: false
+    Reno: false
+    North Las Vegas: false
+    Paradise: false
+    Sunrise Manor: false
+    Spring Valley: false
+    Enterprise: false
+    NY: false
+    New York City: false
+    Buffalo: false
+    Yonkers: false
+    Syracuse: false
+    OH: false
+    Cleveland: false
+    Cincinnati: false
+    Toledo: false
+    Akron: false
+    Dayton: false
+    OK: false
+    Oklahoma City: false
+    Tulsa: false
+    Norman: false
+    Broken Arrow: false
+    OR: false
+    Salem: false
+    Eugene: false
+    Gresham: false
+    PA: false
+    Philadelphia: false
+    Pittsburgh: false
+    Allentown: false
+    RI: false
+    Providence: false
+    Charleston: false
+    North Charleston: false
+    Sioux Falls: false
+    TN: false
+    Memphis: false
+    Nashville: false
+    Knoxville: false
+    Chattanooga: false
+    Clarksville: false
+    Murfreesboro: false
+    TX: false
+    Houston: false
+    San Antonio: false
+    Dallas: false
+    Austin: false
+    Fort Worth: false
+    El Paso: false
+    Arlington: false
+    Corpus Christi: false
+    Plano: false
+    Laredo: false
+    Lubbock: false
+    Garland: false
+    Irving: false
+    Amarillo: false
+    Grand Prairie: false
+    Brownsville: false
+    McKinney: false
+    Frisco: false
+    Mesquite: false
+    McAllen: false
+    Killeen: false
+    Waco: false
+    Carrollton: false
+    Denton: false
+    Midland: false
+    Abilene: false
+    Beaumont: false
+    Odessa: false
+    Round Rock: false
+    Richardson: false
+    Wichita Falls: false
+    College Station: false
+    Pearland: false
+    Lewisville: false
+    Tyler: false
+    UT: false
+    Salt Lake City: false
+    West Valley City: false
+    Provo: false
+    West Jordan: false
+    VA: false
+    Virginia Beach: false
+    Norfolk: false
+    Chesapeake: false
+    Newport News: false
+    Alexandria: false
+    Hampton: false
+    Arlington County: false
+    VT: false
+    Burlington: false
+    WA: false
+    Seattle: false
+    Spokane: false
+    Tacoma: false
+    Vancouver: false
+    Bellevue: false
+    Kent: false
+    Everett: false
+    WI: false
+    Milwaukee: false
+    Madison: false
+    Green Bay: false
+    WV: false
+    WY: false
+    Cheyenne: false
+    PS: false
+    Pristina: false
+    Priština: false
+    Prishtina: false
+    Prishtinë: false
+    AD: false
+    Andorra la Vella: false
+    Tirana: false
+    AT: false
+    Vienna: false
+    Wien: false
+    AX: false
+    Mariehamn: false
+    BA: false
+    Sarajevo: false
+    BE: false
+    Brussels: false
+    Bruxelles: false
+    Brussel: false
+    BG: false
+    Sofia: false
+    BY: false
+    Minsk: false
+    CH: false
+    Bern: false
+    Zürich: false
+    Zurich: false
+    Geneva: false
+    CY: false
+    Nicosia: false
+    North Nicosia: false
+    CZ: false
+    Prague: false
+    Praha: false
+    Praga: false
+    Berlin: false
+    Hanover: false
+    Hamburg: false
+    Munich: false
+    München: false
+    Stuttgart: false
+    Frankfurt: false
+    Düsseldorf: false
+    Cologne: false
+    Essen: false
+    Dresden: false
+    Leipzig: false
+    DK: false
+    Copenhagen: false
+    København: false
+    DZ: false
+    Algiers: false
+    EE: false
+    Tallinn: false
+    EG: false
+    Cairo: false
+    ES: false
+    Madrid: false
+    Barcelona: false
+    Murcia: false
+    Malaga: false
+    Seville: false
+    Bilbao: false
+    Zaragoza: false
+    Valencia: false
+    FI: false
+    Helsinki: false
+    FO: false
+    Tórshavn: false
+    Torshavn: false
+    FR: false
+    Paris: false
+    Nice: false
+    Montpellier: false
+    Marseille: false
+    Lyon: false
+    Toulouse: false
+    Bordeaux: false
+    Nantes: false
+    GB: false
+    London: false
+    London Heathrow: false
+    Liverpool: false
+    Bristol: false
+    Cardiff: false
+    Oxford: false
+    Glasgow: false
+    Edinburgh: false
+    Belfast: false
+    GE: false
+    Tbilisi: false
+    GG: false
+    Saint Peter Port: false
+    GR: false
+    Thessaloniki: false
+    HR: false
+    Zagreb: false
+    HU: false
+    Budapest: false
+    IE: false
+    Dublin: false
+    Jerusalem: false
+    Tel Aviv: false
+    IM: false
+    Douglas: false
+    IQ: false
+    Baghdad: false
+    IS: false
+    Reykjavik: false
+    IT: false
+    Rome: false
+    Roma: false
+    JE: false
+    Saint Helier: false
+    JO: false
+    Amman: false
+    LB: false
+    Beirut: false
+    LI: false
+    Vaduz: false
+    LT: false
+    Vilnius: false
+    LU: false
+    Luxembourg: false
+    LV: false
+    Riga: false
+    LY: false
+    Tripoli: false
+    Rabat: false
+    Fes: false
+    Casablanca: false
+    Marrakesh: false
+    Marrakech: false
+    Tangier: false
+    Chisinau: false
+    Chișinău: false
+    Podgorica: false
+    MK: false
+    Skopje: false
+    Valletta: false
+    NL: false
+    Amsterdam: false
+    The Hague: false
+    Rotterdam: false
+    NO: false
+    Oslo: false
+    Bergen: false
+    Trondheim: false
+    PL: false
+    Warsaw: false
+    Warszawa: false
+    Krakow: false
+    Lublin: false
+    Bialystok: false
+    Lodz: false
+    Gdansk: false
+    Wroclaw: false
+    PT: false
+    Lisbon: false
+    Porto: false
+    RO: false
+    Bucharest: false
+    București: false
+    RS: false
+    Belgrade: false
+    Beograd: false
+    RU: false
+    Moscow: false
+    Moskva: false
+    Saint Petersburg: false
+    Kazan: false
+    Vladivostok: false
+    Irkutsk: false
+    Novosibirsk: false
+    Krasnoyarsk: false
+    Nizhny Novgorod: false
+    SA: false
+    Riyadh: false
+    SE: false
+    Stockholm: false
+    Gothenburg: false
+    Malmo: false
+    SI: false
+    Ljubljana: false
+    SK: false
+    Bratislava: false
+    SM: false
+    San Marino: false
+    SY: false
+    Damascus: false
+    Tunis: false
+    TR: false
+    Ankara: false
+    Istanbul: false
+    Constantinople: false
+    UA: false
+    Kyiv: false
+    Kiev: false
+    Kharkiv: false
+    Lviv: false
+    AE: false
+    Abu Dhabi: false
+    AF: false
+    Kabul: false
+    AM: false
+    Yerevan: false
+    AO: false
+    Luanda: false
+    Buenos Aires: false
+    AU: false
+    Canberra: false
+    Sydney: false
+    Melbourne: false
+    Cairns: false
+    Adelaide: false
+    Perth: false
+    Baku: false
+    BD: false
+    Dhaka: false
+    BF: false
+    Ouagadougou: false
+    BI: false
+    Bujumbura: false
+    BJ: false
+    Porto-Novo: false
+    Porto Novo: false
+    Cotonou: false
+    BN: false
+    Bandar Seri Begawani: false
+    BO: false
+    La Paz: false
+    Sucre: false
+    BR: false
+    Brasília: false
+    Brasilia: false
+    Sao Paulo: false
+    Rio de Janeiro: false
+    BS: false
+    Nassau: false
+    BT: false
+    Thimphu: false
+    BW: false
+    Gaborone: false
+    BZ: false
+    Belmopan: false
+    Ottawa: false
+    Calgary: false
+    Edmonton: false
+    Winnipeg: false
+    Toronto: false
+    Montreal: false
+    Québec: false
+    Quebec: false
+    CD: false
+    Kinshasa: false
+    CF: false
+    Bangui: false
+    CG: false
+    Brazzaville: false
+    CI: false
+    Yamoussoukro: false
+    Abidjan: false
+    CL: false
+    Santiago: false
+    CM: false
+    Yaoundé: false
+    Yaounde: false
+    CN: false
+    Beijing: false
+    Bogotá: false
+    Bogota: false
+    CR: false
+    San José: false
+    CU: false
+    Havana: false
+    DJ: false
+    Djibouti: false
+    DO: false
+    Santo Domingo: false
+    EC: false
+    Quito: false
+    EH: false
+    Laayoune: false
+    ER: false
+    Asmara: false
+    ET: false
+    Addis Ababa: false
+    FJ: false
+    Suva: false
+    FK: false
+    Stanley: false
+    Libreville: false
+    GH: false
+    Accra: false
+    GL: false
+    Nuuk: false
+    GM: false
+    Banjul: false
+    GN: false
+    Conakry: false
+    GQ: false
+    Malabo: false
+    GT: false
+    Guatemala City: false
+    GW: false
+    Bissau: false
+    GY: false
+    Georgetown: false
+    HN: false
+    Tegucigalpa: false
+    HT: false
+    Port-au-Prince: false
+    Port au Prince: false
+    Jakarta: false
+    New Delhi: false
+    Mumbai: false
+    Bombay: false
+    Bengaluru: false
+    Hyderabad: false
+    IR: false
+    Tehran: false
+    JM: false
+    Kingston: false
+    JP: false
+    Tokyo: false
+    Osaka: false
+    Hiroshima: false
+    Fukuoka: false
+    Sapporo: false
+    KE: false
+    Nairobi: false
+    KG: false
+    Bishkek: false
+    KH: false
+    Phnom Penh: false
+    KP: false
+    Pyongyang: false
+    KR: false
+    Seoul: false
+    KW: false
+    Kuwait City: false
+    KZ: false
+    Astana: false
+    Vientiane: false
+    LK: false
+    Sri Jayawardenepura Kotte: false
+    Colombo: false
+    LR: false
+    Monrovia: false
+    LS: false
+    Maseru: false
+    MG: false
+    Antananarivo: false
+    ML: false
+    Bamako: false
+    MM: false
+    Naypyidaw: false
+    Ulaanbaatar: false
+    Ulan Bator: false
+    MR: false
+    Nouakchott: false
+    MW: false
+    Lilongwe: false
+    MX: false
+    Mexico City: false
+    MY: false
+    Kuala Lumpur: false
+    Putrajaya: false
+    MZ: false
+    Maputo: false
+    NA: false
+    Windhoek: false
+    Nouméa: false
+    Noumea: false
+    Niamey: false
+    NG: false
+    Abuja: false
+    NI: false
+    Managua: false
+    NP: false
+    Kathmandu: false
+    NZ: false
+    Wellington: false
+    Auckland: false
+    Christchurch: false
+    Queenstown: false
+    OM: false
+    Muscat: false
+    Panama City: false
+    PE: false
+    Lima: false
+    PG: false
+    Port Moresby: false
+    PH: false
+    Manila: false
+    PK: false
+    Islamabad: false
+    PR: false
+    San Juan: false
+    PY: false
+    Asunción: false
+    Asuncion: false
+    QA: false
+    Doha: false
+    RW: false
+    Kigali: false
+    SB: false
+    Honiara: false
+    Khartoum: false
+    SL: false
+    Freetown: false
+    SN: false
+    Dakar: false
+    SO: false
+    Mogadishu: false
+    SR: false
+    Paramaribo: false
+    SS: false
+    Juba: false
+    SV: false
+    San Salvador: false
+    SZ: false
+    Mbabane: false
+    Lobamba: false
+    TD: false
+    N\'Djamena: false
+    NDjamena: false
+    N Djamena: false
+    TG: false
+    Lomé: false
+    Lome: false
+    TH: false
+    Bangkok: false
+    TJ: false
+    Dushanbe: false
+    TL: false
+    Dili: false
+    TM: false
+    Ashgabat: false
+    TT: false
+    Port of Spain: false
+    TW: false
+    Taipei: false
+    TZ: false
+    Dodoma: false
+    UG: false
+    Kampala: false
+    UY: false
+    Montevideo: false
+    UZ: false
+    Tashkent: false
+    VE: false
+    Caracas: false
+    VN: false
+    Hanoi: false
+    Ho Chi Minh: false
+    VU: false
+    Port Vila: false
+    YE: false
+    Sana\'a: false
+    Sanaa: false
+    ZA: false
+    Pretoria: false
+    Bloemfontein: false
+    Cape Town: false
+    Johannesburg: false
+    ZM: false
+    Lusaka: false
+    ZW: false
+    Harare: false
+    US: false
+    def `_regexify`:
+        .*\b: false
+        \b.*: false
+mapper.py:
+    def `is_shapely_speedups_available`:
+        ' -c ': false
+        """import json
+from shapely.geometry import shape
+import shapely.speedups
+shapely.speedups.enable()
+shape(json.load(open('%s'))['features'][0]['geometry'])
+""": false
+        admin0.json: false
+    geojson: false
+    .: false
+    -: false
+    admin2-*.json: false
+    Shapely speed-ups available: false
+    def `__load`:
+        def `_admin_cc`:
+            .: false
+            -: false
+        admin*.json: false
+        'Missing GeoJSON files. ': false
+        In development environments, merge in the "json": false
+        branch. See CONTRIBUTING.md: false
+        Loading GeoJSON data ...: false
+        utf-8: false
+        features: false
+        properties: false
+        geometry: false
+        latitude: širina
+        longitude: dolžina
+        _id: false
+        adm0_a3: false
+        USA: false
+        hasc: false
+        .: false
+        NUL: false
+    class `ToLatLon`:
+        def `from_cc_name`:
+            name: false
+        def `from_cc2`:
+            iso_a2: false
+        def `from_cc3`:
+            iso_a3: false
+        def `from_region`:
+            name: false
+        def `from_fips`:
+            fips: false
+        def `from_hasc`:
+            hasc: false
+        def `from_us_state`:
+            name: false
+        def `valid_values`:
+            from_: false
+            name: false
+            iso_a2: false
+            iso_a3: false
+            fips: false
+            hasc: false
+    def `latlon2region`:
+        Mapping %d coordinate pairs into regions: false
+        C: false
+        adm0_a3: false
+    def `get_bounding_rect`:
+        longitude: dolžina
+        latitude: širina
+    __main__: false
+    RU: false
+    SI: false
+utils.py:
+    T: false
+    latitude, lat: latitude, lat, širina
+    ', ': false
+    longitude, lng, long, lon: longitude, lng, long, lon, dolžina
+widgets/__init__.py:
+    Geo: true
+    Transformation and visualization of geographical data.: Preoblikovanje in vizualizacija geografskih podatkov.
+    icons/category.svg: false
+    '#a0eaa0': false
+    {DEVELOP_ROOT}/doc/_build/html/index.html: false
+    http://orange3-geo.readthedocs.io/en/latest/: false
+widgets/owchoropleth.py:
+    http://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png: false
+    &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>: false
+    _ChoroplethRegion: false
+    id: false
+    qpolys: false
+    info: false
+    class `BinningPaletteItemSample`:
+        def `__init__`:
+            {{:.{}f}}: false
+            {} - {}: false
+    class `ChoroplethItem`:
+        def `_get_region_info`:
+            <b>Region = </b>: <b>Regija = </b>
+            name: false
+        def `tooltip`:
+            <b>{self.agg_func} = {self.agg_value}</b><hr/>: false
+            {self._region_info}: false
+    class `OWChoroplethPlotGraph`:
+        def `__init__`:
+            w: false
+            left: false
+            bottom: false
+        def `_create_drag_tooltip`:
+            '{}: Append to group': {}: Dodaj v skupino
+            Cmd: false
+            darwin: false
+            Ctrl: false
+            'Shift: Add group': Shift: Dodaj skupino
+            'Alt: Remove': false
+            <center>: false
+            ', ': false
+            </center>: false
+            <b>{}</b>: false
+        def `_update_color_legend`:
+            o: false
+    AggDesc: false
+    transform: false
+    disc: false
+    time: false
+    Instance Count: Število primerov
+    size: false
+    Defined Values Count: Število znanih vrednosti
+    count: false
+    Sum: Vsota
+    sum: false
+    Mean: Povprečje
+    mean: false
+    Median: Mediana
+    median: false
+    Mode: Večina
+    omit: false
+    Maximal: Največja vrednost
+    max: false
+    Minimal: Najmanjša vrednost
+    min: false
+    Std.: Deviacija
+    std: false
+    class `OWChoropleth`:
+        Choropleth Map: Barvni zemljevid
+        'A thematic map in which areas are shaded in proportion ': Zemljevid, pobarvan po regijah glede na vrednost spremenljivke
+        to the measurement of the statistical variable being displayed.: .
+        icons/Choropleth.svg: false
+        choropleth map, geo: choropleth map, geo, zemljevid
+        class `Inputs`:
+            Data: Podatki
+        class `Outputs`:
+            Selected Data: Izbrani podatki
+        graph.plot_widget.plotItem: false
+        class `Error`:
+            Data has no latitude and longitude variables.: Podatki ne vsebujejo zemljepisne širine in dolžine
+        class `Warning`:
+            {} points are not in any region.: {} točk(a) ne pripada nobeni regiji.
+        def `_add_controls`:
+            Map settings: Nastavitve zemljevida
+            attr_lat: false
+            Latitude:: Širina:
+            attr_lon: false
+            Longitude:: Dolžina:
+            admin_level: false
+            Detail:: Podrobnost:
+            Controls: Druge nastavitve
+            agg_attr: false
+            Values:: Vrednost:
+            agg_func: false
+            Show:: Pokaži:
+            binning_index: false
+            Bin width:: Širina intervala
+            graph.alpha_value: false
+            Opacity:: Neprosojnost:
+            graph.show_legend: false
+            Show legend: Pokaži legendo
+            auto_commit: false
+        def `send_data`:
+            Group: Skupina
+        def `get_reduced_agg_data`:
+            Other: Ostalo
+        def `is_mode`:
+            Mode: Večina
+        def `get_regions`:
+            _id: false
+        def `format_agg_val`:
+            {value:d}: false
+        def `migrate_settings`:
+            graph: false
+            admin: false
+            admin_level: false
+            autocommit: false
+            auto_commit: false
+            alpha_value: false
+            opacity: false
+            show_legend: false
+        def `migrate_context`:
+            lat_attr: false
+            lon_attr: false
+            attr: false
+            attr_lat: false
+            attr_lon: false
+            agg_attr: false
+            selection: false
+            old_selection: false
+            agg_func: false
+            Max: false
+            Maximal: false
+            Min: false
+            Minimal: false
+            Std: false
+            Std.: false
+    __main__: false
+    India_census_district_population: false
+widgets/owgeocoding.py:
+    class `OWGeocoding`:
+        Geocoding: Geokodiranje
+        'Encode region names into geographical coordinates, or ': Določi zemljepisne koordinate imenu ali obratno.
+        reverse-geocode latitude and longitude pairs into regions.: ""
+        icons/Geocoding.svg: false
+        geocoding, geo, coding: geocoding, geo, coding, kodiranje
+        class `Inputs`:
+            Data: Podatki
+        class `Outputs`:
+            Coded Data: Kodirani podatki
+        Country name: Ime države
+        ISO 3166-1 alpha-2 country code: Koda države po ISO 3166-1 alpha-2
+        ISO 3166-1 alpha-3 country code: Koda države po ISO 3166-1 alpha-3
+        Region name: Ime regije
+        Major city (US): Večje mesto (ZDA)
+        Major city (Europe): Večje mesto (Evropa)
+        Major city (World): Večje mesto (svet)
+        FIPS code: Koda FIPS
+        HASC code: koda HASC
+        US state (name or abbr.): Država ZDA (ime ali okr.)
+        def `__init__`:
+            is_decoding: false
+            &Encode region names into geographical coordinates:: Določi zemljepisne koordinate za podana imena:
+            str_attr: false
+            Region identifier:: Spremenljivka z imenom
+            str_type: false
+            Identifier type:: Vrsta imena
+            &Decode latitude and longitude into regions:: Določi ime glede na podane koordinate:
+            lat_attr: false
+            Latitude:: Širina:
+            lon_attr: false
+            Longitude:: Dolžina:
+            admin: false
+            Administrative level:: Administrativni nivo:
+            Country: Država
+            1st-level subdivision (state, region, province, municipality, ...): Prvi nivo delitve (dežela, regija, provinca ...)
+            2nd-level subdivisions (1st-level & US counties): Drugi nivo delitve
+            append_features: false
+            E&xtend coded data with additional region properties: V tabelo dodaj razširjene podatke o regiji
+            Extend coded data with region properties, such as: 'Dodaj lastnosti, kot so koda ISO, celina, podregija, '
+            'ISO codes, continent, subregion, region type, ': ""
+            economy type, FIPS/HASC codes, region capital etc. as available.: vrsta ekonomija, koda FIPS/NASC, glavno mesto ...
+            autocommit: false
+            &Apply: Uveljavi
+            Unmatched Identifier: Imena, ki niso bila najdena
+            Custom Replacement: Zamenjava
+            ' /': false
+            'Unmatched identifiers: %(info_str)s': Neznana imena: %(info_str)s
+        def `decode`:
+            name: false
+        def `encode`:
+            Geocoding %d regions into coordinates: false
+            {} / {}: false
+            latitude: širina
+            longitude: dolžina
+        def `_to_addendum`:
+            _id: false
+            adm0_a3: false
+            latitude: širina
+            longitude: dolžina
+        def `migrate_context`:
+            str_attr: false
+            lat_attr: false
+            lon_attr: false
+    def `main`:
+        India_census_district_population: false
+    __main__: false
+widgets/owgeotransform.py:
+    def `get_projections`:
+        {i[0]}:{i[1]}: false
+    class `OWGeoTransform`:
+        Geo Transform: Prevedba koordinat
+        Transform geographic coordinates from one system to another.: Prevedba zemljepisnega koordinatnega sistema v drug sistem.
+        icons/GeoTransform.svg: false
+        geo transform, transform, geo: geo transform, transform, koordinate, transformacija
+        class `Inputs`:
+            Data: Podatki
+        class `Outputs`:
+            Data: Podatki
+        Slovenia 1996 / Slovene National Grid: true
+        WGS 84: true
+        class `Error`:
+            Data has no latitude and longitude variables.: Podatki ne vsebujejo zemljepisne širine in dolžine
+        def `__init__`:
+            Coordinates:: Koordinate
+            Latitude:: Širina:
+            attr_lat: false
+            Longitude:: Dolžina:
+            attr_lon: false
+            replace_original: false
+            Replace original coordinates: Nadomesti izvirne koordinate
+            'If unchecked, the original coordinates are retained ': 'Če polje ni izbrano, so nove koordinate pripete '
+            and new coordinates are added as separate variables.: kot ločen stolpec.
+            Transformation:: Prevedba
+            model: false
+            From:: Iz:
+            from_idx: false
+            To:: V:
+            to_idx: false
+            &Commit: Uveljavi
+        def `_transformed_domain`:
+            latitude: širina
+            longitude: dolžina
+        def `send_report`:
+            Original system: Začetni koordinatni sistem
+            Conversion to: Prevedba v
+            Coordinate variables: Zemljepisne koordinate
+            {data.coord_names[0]} / {data.coord_names[1]}: false
+            Output coordinates: Izhodne koordinate
+            {data.transf_names[0]} / {data.transf_names[1]}: false
+    __main__: false
+    http://datasets.biolab.si/core/philadelphia-crime.csv.xz: false
+widgets/owmap.py:
+    class `OWMap`:
+        Geo Map: Zemljevid
+        Show data points on a world map.: Pokaži podatke na zemljevidu.
+        icons/GeoMap.svg: false
+        geo map, map, geo: geo map, map
+        Orange.widgets.visualize.owmap.OWMap: false
+        class `Error`:
+            Data has no latitude and longitude variables.: Podatki ne vsebujejo zemljepisne širine in dolžine
+        class `Warning`:
+            "Plot cannot be displayed because '{}' or '{}' ": "Podatkov ni mogoče pokazati, ker ima '{}' ali '{}' "
+            is missing for all data points: same neznane vrednosti.
+            Points with out of range latitude or longitude are not displayed.: Točke z neveljavno širino ali dolžino so izpuščene.
+            'Cannot fetch map from the internet. ': 'Povezava z zemljevidi na internetu ne deluje. '
+            Displaying only cached parts.: Kažem predhodno shranjene dele.
+        class `Information`:
+            Points with missing '{}' or '{}' are not displayed: Točke z manjkajočo vrednostjo {} ali {} so izpuščene.
+        def `_add_controls`:
+            Layout: Postavitev
+            graph.tile_provider_key: false
+            Map:: Zemljevid:
+            attr_lat: false
+            Latitude:: Širina:
+            attr_lon: false
+            Longitude:: Dolžina:
+            graph.freeze: false
+            Freeze map: Zamrzni zemljevid
+            If checked, the map won't change position to fit new data.: Če je polje izbrano, se postavitev zemljevida ne bo prilagajala novim podatkom.
+        def `_point_tooltip`:
+            <br/>: false
+            {} = {}: false
+        def `migrate_settings`:
+            graph: false
+            tile_provider: false
+            Watercolor: false
+            tile_provider_key: false
+            opacity: false
+            alpha_value: false
+            zoom: false
+            point_width: false
+            jittering: false
+            jitter_size: false
+            show_legend: false
+        def `migrate_context`:
+            lat_attr: false
+            lon_attr: false
+            class_attr: false
+            (None): false
+            color_attr: false
+            (Same color): false
+            label_attr: false
+            (No labels): false
+            shape_attr: false
+            (Same shape): false
+            size_attr: false
+            (Same size): false
+            attr_lat: false
+            attr_lon: false
+            attr_color: false
+            attr_label: false
+            attr_shape: false
+            attr_size: false
+    __main__: false
+    India_census_district_population: false
+widgets/plotutils.py:
+    OpenStreetMap: false
+    http://tile.openstreetmap.org/{z}/{x}/{y}.png: false
+    &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>: false
+    Black and white: Črno-bel
+    http://tiles.wmflabs.org/bw-mapnik/{z}/{x}/{y}.png: false
+    Topographic: Topografski
+    http://tile.opentopomap.org/{z}/{x}/{y}.png: false
+    'map data: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)': false
+    Satellite: Satelitski
+    http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}: false
+    'Sources: Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community': false
+    Print: Tisk
+    http://tile.stamen.com/toner/{z}/{x}/{y}.png: false
+    Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.: false
+    Dark: Temen
+    http://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png: false
+    &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>: false
+    class `MapViewBox`:
+        def `mouseDragEvent`:
+            mouseMode: false
+        def `match_zoom`:
+            mouseEnabled: false
+    class `AttributionItem`:
+        def `__init__`:
+            justify: false
+            left: false
+    class `ImageLoader`:
+        def `__init__`:
+            geo: false
+            .GeoMap.Cache: false
+        def `get`:
+            User-Agent: false
+            OWMap/1.0: false
+    class `MapMixin`:
+        def `__new_map_item`:
+            row-major: false
+        def `_load_from_mem`:
+            RGBA: false
+            '#ffffff00': false
