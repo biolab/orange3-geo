@@ -2,3 +2,4 @@
  
   recursive-include doc *.bat *.json  *.md *.png *.py *.rst Makefile
   recursive-include orangecontrib *.csv *.json *.sh *.svg *.txt
+  recursive-include i18n *.jaml *.yaml

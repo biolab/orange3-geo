@@ -1,8 +1,7 @@
-if [ "$#" -ne 2 ]
+if [ "$#" -ne 1 ]
 then
-    echo "Usage: trans <language> <destination>"
+    echo "Usage: trans <destination>"
 else
-    lang=$1
-    dest=$2
-    trubar --conf $lang/trubar-config.yaml translate -s ../orangecontrib/geo -d $dest/orangecontrib/geo $lang/msgs.jaml
+    dest=$1
+    trubar --conf trubar-config.yaml translate -s ../orangecontrib/geo -d $dest/orangecontrib/geo msgs.jaml
 fi
