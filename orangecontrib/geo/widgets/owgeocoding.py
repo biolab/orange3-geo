@@ -96,7 +96,7 @@ class OWGeocoding(widget.OWWidget):
         top = self.controlArea
 
         def _radioChanged():
-            self.commit()
+            self.commit.deferred()
 
         modes = gui.radioButtons(top, self, 'is_decoding', callback=_radioChanged)
 
@@ -127,13 +127,13 @@ class OWGeocoding(widget.OWWidget):
         self.domainmodels.append(model)
         combo = gui.comboBox(
             box, self, 'lat_attr', label='Latitude:', orientation=Qt.Horizontal,
-            callback=lambda: self.commit(), sendSelectedValue=True, model=model)
+            callback=self.commit.deferred, sendSelectedValue=True, model=model)
         combo = gui.comboBox(
             box, self, 'lon_attr', label='Longitude:', orientation=Qt.Horizontal,
-            callback=lambda: self.commit(), sendSelectedValue=True, model=model)
+            callback=self.commit.deferred, sendSelectedValue=True, model=model)
         gui.comboBox(
             box, self, 'admin', label='Administrative level:', orientation=Qt.Horizontal,
-            callback=lambda: self.commit(),
+            callback=self.commit.deferred,
             items=('Country',
                    '1st-level subdivision (state, region, province, municipality, ...)',
                    '2nd-level subdivisions (1st-level & US counties)'),)
@@ -146,7 +146,7 @@ class OWGeocoding(widget.OWWidget):
         gui.checkBox(
             top, self, 'append_features',
             label='E&xtend coded data with additional region properties',
-            callback=lambda: self.commit(),
+            callback=self.commit.deferred,
             toolTip='Extend coded data with region properties, such as'
                     'ISO codes, continent, subregion, region type, '
                     'economy type, FIPS/HASC codes, region capital etc. as available.')
@@ -189,7 +189,7 @@ class OWGeocoding(widget.OWWidget):
                                                  edit.text(),
                                                  Qt.EditRole)
                             if save:
-                                owwidget.commit()
+                                owwidget.commit.deferred()
                                 return
                     edit.clear()
 
@@ -206,11 +206,11 @@ class OWGeocoding(widget.OWWidget):
 
     def on_region_attr_changed(self):
         self.guess_region_type()
-        self.commit()
+        self.commit.deferred()
 
     def on_region_type_changed(self, value):
         self.str_type = value
-        self.commit()
+        self.commit.deferred()
 
     def guess_region_type(self):
         if self.data is None:
@@ -224,7 +224,7 @@ class OWGeocoding(widget.OWWidget):
                 self.str_type = str_type
                 self.str_type_combo.setCurrentText(self.str_type)
 
-
+    @gui.deferred
     def commit(self):
         output = None
         if self.data is not None and len(self.data):
@@ -327,7 +327,7 @@ class OWGeocoding(widget.OWWidget):
 
         if data is None or not len(data):
             self.clear()
-            self.commit()
+            self.commit.now()
             return
 
         for model in self.domainmodels:
@@ -347,7 +347,7 @@ class OWGeocoding(widget.OWWidget):
             self.str_type = next(iter(self.ID_TYPE))
         self.str_type_combo.setCurrentText(self.str_type)
 
-        self.commit()
+        self.commit.now()
 
     def clear(self):
         self.data = None
