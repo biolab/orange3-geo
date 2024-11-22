@@ -4,7 +4,7 @@ from os import path
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = "0.4.2"
+VERSION = "0.5"
 
 README_FILE = path.join(path.dirname(__file__), 'README.pypi')
 LONG_DESCRIPTION = open(README_FILE).read()
