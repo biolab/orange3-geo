@@ -64,7 +64,7 @@ class OWGeocoding(widget.OWWidget):
     autocommit = settings.Setting(True)
     is_decoding = settings.ContextSetting(0)
     str_attr = settings.ContextSetting(None)
-    str_type = settings.ContextSetting(next(iter(ID_TYPE)))
+    str_type = settings.ContextSetting(None)
     lat_attr = settings.ContextSetting(None)
     lon_attr = settings.ContextSetting(None)
     admin = settings.ContextSetting(0)
@@ -106,13 +106,14 @@ class OWGeocoding(widget.OWWidget):
         model = DomainModel(parent=self, valid_types=(StringVariable, DiscreteVariable))
         self.domainmodels.append(model)
 
-        combo = gui.comboBox(
-            box, self, 'str_attr', label='Region identifier:',
-            orientation=Qt.Horizontal, callback=self.region_attr_changed,
-            sendSelectedValue=True, model=model)
         gui.comboBox(
-            box, self, 'str_type', label='Identifier type:', orientation=Qt.Horizontal,
-            items=tuple(self.ID_TYPE.keys()), callback=lambda: self.commit(), sendSelectedValue=True)
+            box, self, 'str_attr', label='Region identifier:',
+            orientation=Qt.Horizontal, callback=self.on_region_attr_changed,
+            sendSelectedValue=True, model=model)
+        self.str_type_combo = gui.comboBox(
+            box, self, None, label='Identifier type:', orientation=Qt.Horizontal,
+            items=tuple(self.ID_TYPE))
+        self.str_type_combo.textActivated.connect(self.on_region_type_changed)
 
         # Select first mode if any of its combos are changed
         for combo in box.findChildren(QComboBox):
@@ -203,7 +204,15 @@ class OWGeocoding(widget.OWWidget):
         box.layout().addWidget(view)
         self.setMainAreaVisibility(False)
 
-    def region_attr_changed(self):
+    def on_region_attr_changed(self):
+        self.guess_region_type()
+        self.commit()
+
+    def on_region_type_changed(self, value):
+        self.str_type = value
+        self.commit()
+
+    def guess_region_type(self):
         if self.data is None:
             return
         if self.str_attr:
@@ -213,8 +222,8 @@ class OWGeocoding(widget.OWWidget):
             str_type = next((k for k, v in self.ID_TYPE.items() if v == func), None)
             if str_type is not None and str_type != self.str_type:
                 self.str_type = str_type
+                self.str_type_combo.setCurrentText(self.str_type)
 
-        self.commit()
 
     def commit(self):
         output = None
@@ -330,8 +339,15 @@ class OWGeocoding(widget.OWWidget):
 
         self.lat_attr, self.lon_attr = find_lat_lon(data)
 
+        self.str_type = None
         self.openContext(data)
-        self.region_attr_changed()
+        if self.str_type is None:
+            self.guess_region_type()
+        if self.str_type is None:
+            self.str_type = next(iter(self.ID_TYPE))
+        self.str_type_combo.setCurrentText(self.str_type)
+
+        self.commit()
 
     def clear(self):
         self.data = None

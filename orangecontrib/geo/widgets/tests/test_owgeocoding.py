@@ -1,7 +1,7 @@
 # pylint: disable=protected-access
 import unittest
 
-from Orange.data import Table, Domain, DiscreteVariable
+from Orange.data import Table, Domain, DiscreteVariable, StringVariable
 from Orange.widgets.tests.base import WidgetTest
 from orangecontrib.geo.widgets.owgeocoding import OWGeocoding
 from orangecontrib.geo.mapper import ToLatLon, CC_NAME_TO_CC_NAME
@@ -72,6 +72,59 @@ class TestOWGeocoding(WidgetTest):
         housing = Table("housing")
         self.send_signal(self.widget.Inputs.data, housing)
         self.assertEqual(self.widget.is_decoding, 1)
+
+    def test_geo_region_guess(self):
+        countries = Table.from_list(
+            Domain([], [], [StringVariable("s")]),
+            [["Slovenia"], ["Germany"], ["France"], ["Italy"], ["Spain"]]
+        )
+        cities = Table.from_list(
+            Domain([], [], [StringVariable("t")]),
+            [["Ljubljana"], ["Berlin"], ["Paris"], ["Rome"], ["Madrid"]]
+        )
+        jibberish = Table.from_list(
+            Domain([], [], [StringVariable("u")]),
+            [["asdfas"], ["Adsfas"], ["agehra"]]
+        )
+        jibberish_t = Table.from_list(
+            Domain([], [], [StringVariable("t")]),
+            [["asdfas"], ["Adsfas"], ["agehra"]]
+        )
+        cities_u = Table.from_list(
+            Domain([], [], [StringVariable("u")]),
+            [["Ljubljana"], ["Berlin"], ["Paris"], ["Rome"], ["Madrid"]]
+        )
+
+        # check if the widget guesses the correct geo region
+        self.send_signal(self.widget.Inputs.data, countries)
+        self.assertEqual(self.widget.str_type, "Country name")
+        self.assertEqual(self.widget.str_type_combo.currentText(), "Country name")
+        m = self.get_output(self.widget.Outputs.coded_data).metas
+        self.assertAlmostEqual(m[0][1], 46.150207418500074)
+        self.assertAlmostEqual(m[4][2], -3.4893281046335867)
+
+        # check if the widget guesses the correct geo region
+        self.send_signal(self.widget.Inputs.data, cities)
+        self.assertEqual(self.widget.str_type, "Major city (Europe)")
+        self.assertEqual(self.widget.str_type_combo.currentText(), "Major city (Europe)")
+        m = self.get_output(self.widget.Outputs.coded_data).metas
+        self.assertAlmostEqual(m[0][1], 46.150207418500074)
+        self.assertAlmostEqual(m[4][2], -3.4893281046335867)
+
+        # cannot guess: use default, country name
+        self.send_signal(self.widget.Inputs.data, jibberish)
+        self.assertEqual(self.widget.str_type, "Country name")
+        self.assertEqual(self.widget.str_type_combo.currentText(), "Country name")
+
+        # cannot guess, but can use context
+        self.send_signal(self.widget.Inputs.data, jibberish_t)
+        self.assertEqual(self.widget.str_type, "Major city (Europe)")
+        self.assertEqual(self.widget.str_type_combo.currentText(), "Major city (Europe)")
+
+        # could guess, but context takes precedence
+        self.send_signal(self.widget.Inputs.data, cities_u)
+        self.assertEqual(self.widget.str_type, "Country name")
+        self.assertEqual(self.widget.str_type_combo.currentText(), "Country name")
 
     def test_minimum_size(self):
         pass
