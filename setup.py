@@ -2,7 +2,7 @@
 
 from os import path
 from setuptools import setup, find_packages
-
+from setuptools.command.install import install
 
 VERSION = "0.4.2"
 
@@ -36,6 +36,21 @@ def _discover_tests():
                                                top_level_dir='.')
 
 
+class InstallMultilingualCommand(install):
+    def run(self):
+        install.run(self)
+        self.compile_to_multilingual()
+
+    def compile_to_multilingual(self):
+        from trubar import translate
+
+        package_dir = path.dirname(path.abspath(__file__))
+        translate(
+            "msgs.jaml",
+            source_dir=path.join(self.install_lib, "orangecontrib", "geo"),
+            config_file=path.join(package_dir, "i18n", "trubar-config.yaml"))
+
+
 if __name__ == '__main__':
     setup(
         name='Orange3-Geo',
@@ -47,7 +62,7 @@ if __name__ == '__main__':
         packages=find_packages(),
         include_package_data=True,
         install_requires=[
-            'Orange3>=3.34.0',
+            'Orange3>=3.37.0',
             'scikit-learn',
             'pandas',
             'scipy>=0.17',
@@ -56,7 +71,12 @@ if __name__ == '__main__':
             'simplejson',
             'Pillow'
         ],
-
+        setup_requires=[
+            'trubar>=0.3.3',
+        ],
+        cmdclass={
+            'install': InstallMultilingualCommand,
+        },
         extras_require = {
             'test': ['coverage'],
             'doc': ['sphinx', 'recommonmark', 'sphinx_rtd_theme'],  
