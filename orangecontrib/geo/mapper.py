@@ -23,35 +23,11 @@ from orangecontrib.geo.utils import once
 log = logging.getLogger(__name__)
 
 
-def is_shapely_speedups_available():
-    if not shapely.speedups.available:
-        return False
-    # Otherwise try shapely with speedups in a subprocess to see if shit
-    # is crash due to ABI-incompatible libgeos found in path on Loonix
-    import sys, subprocess
-    proc = subprocess.Popen(
-        sys.executable + ' -c ' + '''"import json
-from shapely.geometry import shape
-import shapely.speedups
-shapely.speedups.enable()
-shape(json.load(open('%s'))['features'][0]['geometry'])
-"''' % path.join(GEOJSON_DIR, 'admin0.json'),
-        # Didn't return correct exit status without shell=True
-        shell=True)
-    proc.wait()
-    return proc.returncode == 0
-
-
 GEOJSON_DIR = path.join(path.dirname(__file__), 'geojson')
 
 ADMIN2_COUNTRIES = {path.basename(filename).split('.')[0].split('-')[1]
                     for filename in glob(path.join(GEOJSON_DIR, 'admin2-*.json'))}
 NUL = {}  # nonmapped (invalid) output region
-
-
-if is_shapely_speedups_available():
-    shapely.speedups.enable()
-    log.debug('Shapely speed-ups available')
 
 
 def wait_until_loaded(func):
