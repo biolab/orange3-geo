@@ -66,7 +66,7 @@ if __name__ == '__main__':
             'scikit-learn',
             'pandas',
             'scipy>=0.17',
-            'shapely',
+            'shapely>=2',
             'pyproj',
             'simplejson',
             'Pillow'
