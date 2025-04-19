@@ -15,7 +15,7 @@ T = TypeVar("T")
 
 LATITUDE_NAMES = tuple('latitude, lat'.split(", "))
 LONGITUDE_NAMES = tuple('longitude, lng, long, lon'.split(", "))
-
+LAT_LONG_NAMES = [LATITUDE_NAMES[0], LONGITUDE_NAMES[0]]
 
 def find_lat_lon(data, filter_hidden=False):
     """

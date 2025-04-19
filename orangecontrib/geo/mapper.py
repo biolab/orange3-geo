@@ -5,6 +5,7 @@ from operator import itemgetter
 from os import path
 from glob import glob
 import logging
+from typing import NamedTuple
 
 import simplejson as json
 import numpy as np
@@ -248,6 +249,25 @@ class ToLatLon:
             if sum(map(bool, method(values))) >= len(values) / 2:
                 return method
         return None
+
+
+class RegionType(NamedTuple):
+    name: str
+    mapper: callable
+
+
+RegionTypes = [RegionType(*item) for item in [
+    ('Country name', ToLatLon.from_cc_name),
+    ('ISO 3166-1 alpha-2 country code', ToLatLon.from_cc2),
+    ('ISO 3166-1 alpha-3 country code', ToLatLon.from_cc3),
+    ('Region name', ToLatLon.from_region),
+    ('Major city (US)', ToLatLon.from_city_us),
+    ('Major city (Europe)', ToLatLon.from_city_eu),
+    ('Major city (World)', ToLatLon.from_city_world),
+    ('FIPS code', ToLatLon.from_fips),
+    ('HASC code', ToLatLon.from_hasc),
+    ('US state (name or abbr.)', ToLatLon.from_us_state)
+]]
 
 
 @wait_until_loaded
