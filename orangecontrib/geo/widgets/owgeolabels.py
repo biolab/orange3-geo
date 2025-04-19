@@ -1,0 +1,136 @@
+from itertools import chain
+
+import numpy as np
+import pandas as pd
+
+from AnyQt.QtWidgets import QGridLayout, QLabel
+
+from orangewidget.utils.widgetpreview import WidgetPreview
+from Orange.data import Table, Domain, StringVariable, ContinuousVariable
+from Orange.data.util import get_unique_names
+from Orange.widgets import gui, widget, settings
+from Orange.widgets.utils.itemmodels import DomainModel
+from Orange.widgets.widget import Input, Output
+
+from orangecontrib.geo.utils import find_lat_lon
+from orangecontrib.geo.mapper import latlon2region
+
+
+class OWGeoLabels(widget.OWWidget):
+    name = "Geo Labels"
+    description = 'Assign names corresponding to geographical coordinates.'
+    icon = "icons/Geocoding.svg"
+    priority = 40
+    keywords = "geocoding, geo, coding"
+
+    class Inputs:
+        data = Input("Data", Table, default=True)
+
+    class Outputs:
+        coded_data = Output("Data", Table, default=True)
+
+    want_main_area = False
+    resizing_enabled = False
+
+    settingsHandler = settings.DomainContextHandler()
+    autocommit = settings.Setting(True)
+    lat_attr = settings.ContextSetting(None)
+    lon_attr = settings.ContextSetting(None)
+    admin = settings.ContextSetting(0)
+    append_features = settings.Setting(False)
+
+    def __init__(self):
+        super().__init__()
+        self.data = None
+        self.domainmodel = DomainModel(valid_types=(ContinuousVariable, ))
+
+        grid = QGridLayout()
+        gui.widgetBox(self.controlArea, True, orientation=grid)
+        grid.addWidget(QLabel("Latitude:"), 0, 0)
+        grid.addWidget(
+            gui.comboBox(
+                None, self, 'lat_attr', model=self.domainmodel,
+                callback=self.commit.deferred),
+            1, 0)
+
+        grid.addWidget(QLabel("Longitude:"), 0, 1)
+        grid.addWidget(
+            gui.comboBox(
+                None, self, 'lon_attr', model=self.domainmodel,
+                callback=self.commit.deferred),
+            1, 1)
+
+        grid.addWidget(QLabel("Administrative level:"), 2, 0)
+        grid.addWidget(
+            gui.comboBox(
+                None, self, 'admin',
+                items=('Country',
+                       '1st-level subdivision (state, region, province, municipality, ...)',
+                       '2nd-level subdivisions (1st-level & US counties)'),
+                callback=self.commit.deferred),
+            3, 0, 1, 2)
+
+        gui.checkBox(
+            gui.widgetBox(self.controlArea, True), self, 'append_features',
+            label='Include additional properties',
+            callback=self.commit.deferred,
+            toolTip='Extend coded data with properties, such as'
+                    'ISO codes, continent, subregion, region type, '
+                    'economy type, FIPS/HASC codes, region capital etc.'
+                    'as available.')
+
+        gui.auto_commit(self.controlArea, self, 'autocommit', '&Apply')
+
+    @Inputs.data
+    def set_data(self, data):
+        self.closeContext()
+        self.data = data
+
+        if data is None or not len(data):
+            self.data = None
+            self.domainmodel.set_domain(None)
+            self.commit.now()
+            return
+
+        self.domainmodel.set_domain(data.domain)
+
+        self.lat_attr, self.lon_attr = find_lat_lon(data)
+        self.openContext(data)
+        self.commit.now()
+
+    @gui.deferred
+    def commit(self):
+        if (self.data is None or not len(self.data) or
+                self.lat_attr is None or self.lon_attr is None):
+            self.Outputs.coded_data.send(None)
+            return
+
+        data, metas = self.decode()
+        output = self.data.transform(
+            Domain(self.data.domain.attributes,
+                   self.data.domain.class_vars,
+                   self.data.domain.metas + metas))
+        with output.unlocked(output.metas):
+            output.metas[:, -data.shape[1]:] = data
+        self.Outputs.coded_data.send(output)
+
+    def decode(self):
+        latlon = np.c_[self.data.get_column(self.lat_attr),
+                       self.data.get_column(self.lon_attr)]
+        regions = pd.DataFrame(latlon2region(latlon, self.admin))
+
+        if self.append_features:
+            addendum = regions.drop(['_id', 'adm0_a3', 'longitude', 'latitude'],
+                                     axis=1)
+            metas = tuple(
+                StringVariable(get_unique_names(self.data.domain, name))
+                for name in addendum
+            )
+        else:
+            addendum = regions[['name']]
+            metas = (StringVariable(get_unique_names(self.data.domain, "name")), )
+
+        return addendum.values, metas
+
+if __name__ == "__main__":
+    WidgetPreview(OWGeoLabels).run(Table("India_census_district_population"))
