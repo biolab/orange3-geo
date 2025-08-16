@@ -75,11 +75,11 @@ TILE_PROVIDERS = {
         size=256,
         max_zoom=18
     ),
-    "Black and white": _TileProvider(
-        url="http://tiles.wmflabs.org/bw-mapnik/{z}/{x}/{y}.png",
-        attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+    "Greyscale": _TileProvider(
+        url="http://tile.geofabrik.de/c92f820ec8abcfd7f51b075e3efa157e//{z}/{x}/{y}.png",
+        attribution='<a href="http://geofabrik.di">Geofabrik</a>',
         size=256,
-        max_zoom=18
+        max_zoom=19
     ),
     "Topographic": _TileProvider(
         url="http://tile.opentopomap.org/{z}/{x}/{y}.png",
@@ -93,11 +93,11 @@ TILE_PROVIDERS = {
         size=256,
         max_zoom=19
     ),
-    "Print": _TileProvider(
-        url="http://tile.stamen.com/toner/{z}/{x}/{y}.png",
-        attribution='Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.',
+    "Light": _TileProvider(
+        url="http://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+        attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
         size=256,
-        max_zoom=20
+        max_zoom=19
     ),
     "Dark": _TileProvider(
         url="http://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
