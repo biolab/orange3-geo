@@ -22,13 +22,14 @@ from orangecontrib.geo.mapper import ToLatLon, RegionTypes
 
 
 class ReplacementModel(QAbstractTableModel):
-    def __init__(self, unmatched, matched, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.unmatched = unmatched
-        self.matched = matched
+        self.unmatched = []
+        self.matched = []
 
     def rowCount(self, parent=None, *_, **__):
-        if parent and parent.isValid():
+        if parent and parent.isValid() \
+                or not self.unmatched and not self.matched:
             return 0
         return len(self.unmatched) + len(self.matched) + 1
 
@@ -190,7 +191,7 @@ class OWGeoCoordinates(widget.OWWidget):
         layout.addWidget(QLabel("Region type:"), 0, 1)
         layout.addWidget(self.region_type_combo, 1, 1)
 
-        self.replacementsModel = ReplacementModel([], [], self)
+        self.replacementsModel = ReplacementModel(self)
         view = gui.TableView(
             self,
             sortingEnabled=False,
@@ -220,7 +221,10 @@ class OWGeoCoordinates(widget.OWWidget):
         self.statusBar().setSizeGripEnabled(True)
 
     def on_region_attr_changed(self):
+        old_type = self.region_type
         self.guess_region_type()
+        if old_type != self.region_type:
+            self.update_delegate()
         self.update_replacement_model()
         self.commit.deferred()
 
@@ -239,14 +243,13 @@ class OWGeoCoordinates(widget.OWWidget):
 
         values = self._get_data_values()
         if values is None:
-            return False
+            return
 
         func = ToLatLon.detect_input(values)
         for i, t in enumerate(RegionTypes):
-            if t.mapper is func:
+            if t.mapper == func:  # `is` doesn't work for bound methods
                 self.region_type = i
-                return True
-        return False
+                return
 
     def replacements_changed(self, key, value):
         self.replacements[key] = value
@@ -266,7 +269,7 @@ class OWGeoCoordinates(widget.OWWidget):
 
         self.domainmodel.set_domain(data.domain)
         self.region_attr = self.domainmodel[0] if self.domainmodel else None
-        self.region_type = self.guess_region_type() or 0
+        self.guess_region_type()
         self.openContext(data)
         self.region_type_combo.setCurrentText(RegionTypes[self.region_type].name)
         self.update_delegate()
@@ -321,7 +324,11 @@ class OWGeoCoordinates(widget.OWWidget):
         values = self._get_data_values()
         mappings = RegionTypes[self.region_type].mapper(values)
         latlon = pd.DataFrame(mappings)
-        latlon.drop(['_id', 'adm0_a3'], axis=1, inplace=True)
+        if latlon.empty:
+            return None, None
+
+        # ignore errors: _id and adm0_a3 are not always present
+        latlon.drop(['_id', 'adm0_a3'], axis=1, inplace=True, errors="ignore")
         addendum = latlon if self.append_features else latlon[LAT_LONG_NAMES]
 
         metas = tuple(
