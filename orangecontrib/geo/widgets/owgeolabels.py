@@ -25,7 +25,7 @@ ADMIN_LEVELS = (
 class OWGeoLabels(widget.OWWidget):
     name = "Geo Labels"
     description = 'Assign names corresponding to geographical coordinates.'
-    icon = "icons/Geocoding.svg"
+    icon = "icons/GeoLabels.svg"
     priority = 40
     keywords = "geocoding, geo, coding"
 

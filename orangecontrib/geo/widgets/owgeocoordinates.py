@@ -141,9 +141,9 @@ class ReplacementDelegate(QItemDelegate):
 
 
 class OWGeoCoordinates(widget.OWWidget):
-    name = "Geocoding"
+    name = "Geo Coordinates"
     description = "Add geographical coordinates for regions or places"
-    icon = "icons/Geocoding.svg"
+    icon = "icons/GeoCoordinates.svg"
     priority = 40
     keywords = "geocoding, geo, coding"
 
