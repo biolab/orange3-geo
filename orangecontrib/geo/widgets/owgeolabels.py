@@ -16,6 +16,12 @@ from orangecontrib.geo.utils import find_lat_lon
 from orangecontrib.geo.mapper import latlon2region
 
 
+ADMIN_LEVELS = (
+    'Country',
+    '1st-level subdivision (state, region, province, municipality, ...)',
+    '2nd-level subdivisions (1st-level & US counties)'
+
+)
 class OWGeoLabels(widget.OWWidget):
     name = "Geo Labels"
     description = 'Assign names corresponding to geographical coordinates.'
@@ -42,6 +48,7 @@ class OWGeoLabels(widget.OWWidget):
     def __init__(self):
         super().__init__()
         self.data = None
+        self.n_mismatches = False  # For reporting
         self.domainmodel = DomainModel(valid_types=(ContinuousVariable, ))
 
         grid = QGridLayout()
@@ -64,9 +71,7 @@ class OWGeoLabels(widget.OWWidget):
         grid.addWidget(
             gui.comboBox(
                 None, self, 'admin',
-                items=('Country',
-                       '1st-level subdivision (state, region, province, municipality, ...)',
-                       '2nd-level subdivisions (1st-level & US counties)'),
+                items=ADMIN_LEVELS,
                 callback=self.commit.deferred),
             3, 0, 1, 2)
 
@@ -84,25 +89,23 @@ class OWGeoLabels(widget.OWWidget):
     @Inputs.data
     def set_data(self, data):
         self.closeContext()
-        self.data = data
 
-        if data is None or not len(data):
+        if not data:
             self.data = None
             self.domainmodel.set_domain(None)
-            self.commit.now()
-            return
+        else:
+            self.data = data
+            self.domainmodel.set_domain(data.domain)
+            self.lat_attr, self.lon_attr = find_lat_lon(data)
+            self.openContext(data)
 
-        self.domainmodel.set_domain(data.domain)
-
-        self.lat_attr, self.lon_attr = find_lat_lon(data)
-        self.openContext(data)
         self.commit.now()
 
     @gui.deferred
     def commit(self):
-        if (self.data is None or not len(self.data) or
-                self.lat_attr is None or self.lon_attr is None):
+        if not self.data or self.lat_attr is None or self.lon_attr is None:
             self.Outputs.coded_data.send(None)
+            self.n_mismatches = False
             return
 
         data, metas = self.decode()
@@ -112,12 +115,21 @@ class OWGeoLabels(widget.OWWidget):
                    self.data.domain.metas + metas))
         with output.unlocked(output.metas):
             output.metas[:, -data.shape[1]:] = data
+        self.n_mismatches = np.sum(output.get_column(metas[0]) == "")
         self.Outputs.coded_data.send(output)
 
     def decode(self):
         latlon = np.c_[self.data.get_column(self.lat_attr),
                        self.data.get_column(self.lon_attr)]
         regions = pd.DataFrame(latlon2region(latlon, self.admin))
+
+        name_var = StringVariable(get_unique_names(self.data.domain, "Name"))
+
+        if regions.empty:
+            return (
+                np.full((len(self.data), 1), ""),
+                (name_var, )
+            )
 
         if self.append_features:
             addendum = regions.drop(['_id', 'adm0_a3', 'longitude', 'latitude'],
@@ -128,9 +140,21 @@ class OWGeoLabels(widget.OWWidget):
             )
         else:
             addendum = regions[['name']]
-            metas = (StringVariable(get_unique_names(self.data.domain, "name")), )
+            metas = (name_var, )
 
-        return addendum.values, metas
+        values = addendum.values
+        values[pd.isna(values)] = ""
+        return values, metas
+
+    def send_report(self):
+        if not self.data or self.lon_attr is None or self.lat_attr is None:
+            return
+
+        self.report_items((("Latitude", self.lat_attr.name),
+                           ("Longitude", self.lon_attr.name),
+                           ("Administrative level", ADMIN_LEVELS[self.admin]),
+                           ("Unmatched coordinates", self.n_mismatches)))
+
 
 if __name__ == "__main__":
     WidgetPreview(OWGeoLabels).run(Table("India_census_district_population"))
