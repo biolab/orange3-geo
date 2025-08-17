@@ -31,6 +31,7 @@ def guess_region_attr_name(data):
 
 class OWGeocoding(widget.OWWidget):
     name = "Geocoding"
+    category = "Orange Obsolete"
     description = 'Encode region names into geographical coordinates, or ' \
                   'reverse-geocode latitude and longitude pairs into regions.'
     icon = "icons/Geocoding.svg"
