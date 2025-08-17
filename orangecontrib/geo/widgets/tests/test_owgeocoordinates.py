@@ -321,7 +321,6 @@ class TestOWGeocoding(WidgetTest):
         # Switch back: previous replacements should kick in
         simulate.combobox_activate_index(self.widget.controls.region_attr, 1)
         out = self.get_output(self.widget.Outputs.coded_data)
-        print(out.metas)
         np.testing.assert_almost_equal(
             out.metas[:, 3:].astype(float),
             np.array(

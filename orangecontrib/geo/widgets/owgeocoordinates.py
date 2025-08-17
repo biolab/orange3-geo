@@ -353,4 +353,4 @@ class OWGeoCoordinates(widget.OWWidget):
 
 if __name__ == "__main__":
     WidgetPreview(OWGeoCoordinates).run(
-        set_data=Table("/Users/janez/Downloads/_vreme/continents.csv"))
+        set_data=Table("continents.csv"))
