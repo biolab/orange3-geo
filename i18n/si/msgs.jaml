@@ -1281,6 +1281,10 @@ widgets/owgeocoordinates.py:
             Data: Podatki
         class `Outputs`:
             Data: Podatki
+        class `Warning`:
+            {}: false
+        class `Error`:
+            No suitable columns in input data: V vhodnih podatkih ni primernih stolpcev
         def `__init__`:
             region_attr: false
             Region identifier:: Spremenljivka z imenom:
@@ -1294,10 +1298,22 @@ widgets/owgeocoordinates.py:
             as available.: ""
             autocommit: false
             &Apply: Uveljavi
+        def `update_warnings`:
+            {n_mismatched} unrecognized region {pl(n_mismatched, 'name')}: {n_mismatched} {plsi(n_mismatched, 'neznano ime|neznani imeni|neznana imena|neznanih imen')}
+            ; {pl(n_mismatched, 'substitution')} provided: ; {plsi(n_mismatched, 'zamenjava je določena|zamenjavi sta določeni|zamenjave so določene')}
+            ; {n_substituted} {pl(n_substituted, 'substitution')} provided: ; {n_substituted} {plsi(n_substituted, 'zamenjava je določena|zamenjavi sta določeni|zamenjave so določene|zamenjav je določenih')}
+            , {n_mismatched - n_substituted} missing: , {n_mismatched - n_substituted} {plsi(n_mismatched - n_substituted, 'manjka|manjkata|manjkajo|jih manjka')}
         def `encode`:
             _id: false
             adm0_a3: false
             ignore: false
+        def `send_report`:
+            Settings: Nastavitve
+            Region Identifier: Spremenljivka z imenom
+            Region Type: Vrsta regije
+            Replacements: Zamenjave
+            Identifier: Ime
+            Replacement: Zamenjava
     __main__: false
     continents.csv: false
 widgets/owgeolabels.py:
@@ -1313,6 +1329,8 @@ widgets/owgeolabels.py:
             Data: Podatki
         class `Outputs`:
             Data: Podatki
+        class `Error`:
+            Input data contains no numeric columns.: Vhodni podatki ne vsebujejo številskih stolpcev.
         def `__init__`:
             Latitude:: Širina:
             lat_attr: false
