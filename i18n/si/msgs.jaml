@@ -1,6 +1,5 @@
 __init__.py:
     datasets: false
-    get_column: false
 cc_cities.py:
     Kosovo: false
     Kosovo, Republic of: false
@@ -987,20 +986,10 @@ cc_cities.py:
         .*\b: false
         \b.*: false
 mapper.py:
-    def `is_shapely_speedups_available`:
-        ' -c ': false
-        """import json
-from shapely.geometry import shape
-import shapely.speedups
-shapely.speedups.enable()
-shape(json.load(open('%s'))['features'][0]['geometry'])
-""": false
-        admin0.json: false
     geojson: false
     .: false
     -: false
     admin2-*.json: false
-    Shapely speed-ups available: false
     def `__load`:
         def `_admin_cc`:
             .: false
@@ -1044,6 +1033,16 @@ shape(json.load(open('%s'))['features'][0]['geometry'])
             iso_a3: false
             fips: false
             hasc: false
+    Country name: Država
+    ISO 3166-1 alpha-2 country code: Koda države ISO 3166-1 alpha-2
+    ISO 3166-1 alpha-3 country code: Koda države ISO 3166-1 alpha-3
+    Region name: Ime regije
+    Major city (US): Večje mesto (ZDA)
+    Major city (Europe): Večje mesto (Evropa)
+    Major city (World): Večje mesto (Svet)
+    FIPS code: Koda FIPS
+    HASC code: Koda HASC
+    US state (name or abbr.): Ameriška zvezna država (ime ali okrajšava)
     def `latlon2region`:
         Mapping %d coordinate pairs into regions: false
         C: false
@@ -1199,6 +1198,7 @@ widgets/owchoropleth.py:
 widgets/owgeocoding.py:
     class `OWGeocoding`:
         Geocoding: Geokodiranje
+        Orange Obsolete: false
         'Encode region names into geographical coordinates, or ': Določi zemljepisne koordinate imenu ali obratno.
         reverse-geocode latitude and longitude pairs into regions.: ""
         icons/Geocoding.svg: false
@@ -1222,7 +1222,6 @@ widgets/owgeocoding.py:
             &Encode region names into geographical coordinates:: Določi zemljepisne koordinate za podana imena:
             str_attr: false
             Region identifier:: Spremenljivka z imenom
-            str_type: false
             Identifier type:: Vrsta imena
             &Decode latitude and longitude into regions:: Določi ime glede na podane koordinate:
             lat_attr: false
@@ -1264,6 +1263,103 @@ widgets/owgeocoding.py:
     def `main`:
         India_census_district_population: false
     __main__: false
+widgets/owgeocoordinates.py:
+    class `ReplacementModel`:
+        def `headerData`:
+            Identifier: false
+            Replacement: false
+        def `data`:
+            Unknown region name; provide a recognized synonym.: Neznano ime; vnesite prepoznano ime.
+            ({item[0]}): false
+            Region recognized; you may change it if necessary.: Ime je prepoznano; po potrebi ga lahko spremenite.
+    class `OWGeoCoordinates`:
+        Geo Coordinates: Geo koordinate
+        Add geographical coordinates for regions or places: Dodaj zemljepisne koordinate regij ali krajev
+        icons/GeoCoordinates.svg: false
+        geocoding, geo, coding: geografske koordinate
+        class `Inputs`:
+            Data: Podatki
+        class `Outputs`:
+            Data: Podatki
+        class `Warning`:
+            {}: false
+        class `Error`:
+            No suitable columns in input data: V vhodnih podatkih ni primernih stolpcev
+        def `__init__`:
+            region_attr: false
+            Region identifier:: Spremenljivka z imenom:
+            region_type: false
+            Region type:: Vrsta regije:
+            append_features: false
+            E&xtend data with additional region properties: Dopolni podatke z lastnostmi regije
+            Extend coded data with region properties, such as: 'Dopolni podatke z lastnostmi regije, kot so '
+            'ISO codes, continent, subregion, region type, ': 'koda ISO, celina, podregija '
+            'economy type, FIPS/HASC codes, region capital etc. ': in druge.
+            as available.: ""
+            autocommit: false
+            &Apply: Uveljavi
+        def `update_warnings`:
+            {n_mismatched} unrecognized region {pl(n_mismatched, 'name')}: {n_mismatched} {plsi(n_mismatched, 'neznano ime|neznani imeni|neznana imena|neznanih imen')}
+            ; {pl(n_mismatched, 'substitution')} provided: ; {plsi(n_mismatched, 'zamenjava je določena|zamenjavi sta določeni|zamenjave so določene')}
+            ; {n_substituted} {pl(n_substituted, 'substitution')} provided: ; {n_substituted} {plsi(n_substituted, 'zamenjava je določena|zamenjavi sta določeni|zamenjave so določene|zamenjav je določenih')}
+            , {n_mismatched - n_substituted} missing: , {n_mismatched - n_substituted} {plsi(n_mismatched - n_substituted, 'manjka|manjkata|manjkajo|jih manjka')}
+        def `encode`:
+            _id: false
+            adm0_a3: false
+            ignore: false
+        def `send_report`:
+            Settings: Nastavitve
+            Region Identifier: Spremenljivka z imenom
+            Region Type: Vrsta regije
+            Replacements: Zamenjave
+            Identifier: Ime
+            Replacement: Zamenjava
+    __main__: false
+    continents.csv: false
+widgets/owgeolabels.py:
+    Country: Država
+    1st-level subdivision (state, region, province, municipality, ...): Prvi nivo (dežela, regija, provinca, mestno okrožje ...)
+    2nd-level subdivisions (1st-level & US counties): Drugi nivo (mesto)
+    class `OWGeoLabels`:
+        Geo Labels: Zemljepisne oznake
+        Assign names corresponding to geographical coordinates.: Določi imena glede na zemljepisne koordinate.
+        icons/GeoLabels.svg: false
+        geocoding, geo, coding: false
+        class `Inputs`:
+            Data: Podatki
+        class `Outputs`:
+            Data: Podatki
+        class `Error`:
+            Input data contains no numeric columns.: Vhodni podatki ne vsebujejo številskih stolpcev.
+        def `__init__`:
+            Latitude:: Širina:
+            lat_attr: false
+            Longitude:: Dolžina:
+            lon_attr: false
+            Administrative level:: Administrativni nivo:
+            admin: false
+            append_features: false
+            Include additional properties: Vključi dodatne lastnosti
+            Extend coded data with properties, such as: Dodaj lastnost, kot so
+            'ISO codes, continent, subregion, region type, ': 'koda ISO, celina, podregija '
+            economy type, FIPS/HASC codes, region capital etc.: in druge.
+            as available.: ""
+            autocommit: false
+            &Apply: Uveljavi
+        def `decode`:
+            Name: Ime
+            _id: false
+            adm0_a3: false
+            longitude: false
+            latitude: false
+            name: false
+        def `send_report`:
+            Latitude: Širina
+            Longitude: Dolžina
+            Administrative level: Administrativni nivo
+            Unmatched coordinates: Neznane koordinate
+    __main__: false
+    India_census_district_population: false
 widgets/owgeotransform.py:
     def `get_projections`:
         {i[0]}:{i[1]}: false
