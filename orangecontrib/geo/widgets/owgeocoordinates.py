@@ -379,6 +379,22 @@ class OWGeoCoordinates(widget.OWWidget):
             values = values.replace(self.replacements)
         return values
 
+    def send_report(self):
+        if not self._valid_data():
+            return
+
+        self.report_items(
+            "Settings",
+            (("Region Identifier", self.region_attr.name),
+             ("Region Type", RegionTypes[self.region_type].name)))
+        if self.replacements:
+            self.report_table(
+                "Replacements",
+                chain((("Identifier", "Replacement"), ),
+                      self.replacements.items()),
+                header_rows=1, header_columns=1
+            )
+
 
 if __name__ == "__main__":
     WidgetPreview(OWGeoCoordinates).run(

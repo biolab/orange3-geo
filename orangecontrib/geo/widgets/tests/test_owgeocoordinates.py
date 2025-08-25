@@ -391,6 +391,20 @@ class TestOWGeocoding(WidgetTest):
         self.send_signal(None)
         self.assertFalse(error.is_shown())
 
+    def test_report(self):
+        self.send_signal(self.data)
+
+        model = self.widget.replacementsModel
+        model.setData(model.index(0, 1), "Nice", Qt.EditRole)
+        self.widget.replacements_changed("Nica", "Nice")
+        model.setData(model.index(1, 1), "Napoli", Qt.EditRole)
+        self.widget.replacements_changed("Napoli", "Rome")
+
+        reported_table = self.widget.report_table = Mock()
+        self.widget.send_report()
+        table = list(reported_table.call_args[0][1])
+        self.assertEqual(table[-2:], [('Nica', 'Nice'), ('Napoli', 'Rome')])
+
 
 if __name__ == "__main__":
     unittest.main()
