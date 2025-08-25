@@ -346,6 +346,35 @@ class TestOWGeocoding(WidgetTest):
             )
         )
 
+    def test_warnings(self):
+        warning = self.widget.Warning.mismatched
+
+        self.send_signal(self.data)
+        self.assertTrue(warning.is_shown())
+
+        self.send_signal(None)
+        self.assertFalse(warning.is_shown())
+
+        self.send_signal(self.data)
+        self.assertIn("1", str(warning))
+
+        combo = self.widget.controls.region_attr
+        simulate.combobox_activate_index(combo, 1)
+        self.assertIn("3", str(warning))
+
+        model = self.widget.replacementsModel
+        model.setData(model.index(0, 1), "Nice", Qt.EditRole)
+        self.widget.replacements_changed("Nica", "Nice")
+        self.assertIn("3", str(warning))
+        self.assertIn("2", str(warning))
+        self.assertIn("1", str(warning))
+
+        model.setData(model.index(1, 1), "Napoli", Qt.EditRole)
+        self.widget.replacements_changed("Napoli", "Rome")
+        model.setData(model.index(2, 1), "Berlin", Qt.EditRole)
+        self.widget.replacements_changed("Maribor", "Berlin")
+        self.assertNotIn("2", str(warning))
+        self.assertNotIn("1", str(warning))
 
 if __name__ == "__main__":
     unittest.main()

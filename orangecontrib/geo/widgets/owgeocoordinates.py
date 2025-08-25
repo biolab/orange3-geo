@@ -10,6 +10,8 @@ from AnyQt.QtWidgets import QItemDelegate, QLineEdit, QLabel, \
     QCompleter, QHeaderView, QSizePolicy, QGridLayout
 
 from orangewidget.utils.widgetpreview import WidgetPreview
+from orangecanvas.localization import pl
+
 from Orange.data import \
     Table, Domain, StringVariable, DiscreteVariable, ContinuousVariable
 from Orange.data.util import get_unique_names
@@ -91,6 +93,9 @@ class ReplacementModel(QAbstractTableModel):
     def replacements(self):
         return {k: v for k, v in chain(self.unmatched, self.matched) if v}
 
+    def n_mismatches(self):
+        return len(self.unmatched), sum(bool(v) for _, v in self.unmatched)
+
 class ReplacementDelegate(QItemDelegate):
     replacementsChanged = Signal(str, str)
 
@@ -150,6 +155,9 @@ class OWGeoCoordinates(widget.OWWidget):
     class Outputs:
         coded_data = Output("Data", Table, default=True)
 
+    class Warning(widget.OWWidget.Warning):
+        mismatched = widget.Msg("{}")
+
     want_main_area = False
     resizing_enabled = False
 
@@ -166,7 +174,6 @@ class OWGeoCoordinates(widget.OWWidget):
     def __init__(self):
         super().__init__()
         self.data = None
-        self.unmatched = []
 
         self.domainmodel = DomainModel(
             parent=self,
@@ -250,11 +257,13 @@ class OWGeoCoordinates(widget.OWWidget):
 
     def replacements_changed(self, key, value):
         self.replacements[key] = value
+        self.update_warnings()
         self.commit.deferred()
 
     @Inputs.data
     def set_data(self, data):
         self.closeContext()
+        self.Warning.clear()
         self.data = data
 
         if data is None or not len(data):
@@ -300,6 +309,7 @@ class OWGeoCoordinates(widget.OWWidget):
         self.Outputs.coded_data.send(output)
 
     def update_replacement_model(self):
+        self.Warning.mismatched.clear()
         if not self._valid_data():
             self.replacementsModel.set_items([], [])
             return
@@ -313,6 +323,19 @@ class OWGeoCoordinates(widget.OWWidget):
         self.replacementsModel.set_items(
             *([[k, self.replacements.get(k, "")] for k in m]
                 for m in (unmatched, matched)))
+        self.update_warnings()
+
+    def update_warnings(self):
+        n_mismatched, n_substituted = self.replacementsModel.n_mismatches()
+        if n_mismatched:
+            msg = f"{n_mismatched} unrecognized region {pl(n_mismatched, 'name')}"
+            if n_substituted == n_mismatched:
+                msg += f"; {pl(n_mismatched, 'substitution')} provided"
+            elif n_substituted:
+                msg += \
+                  f"; {n_substituted} {pl(n_substituted, 'substitution')} provided" \
+                  f", {n_mismatched - n_substituted} missing"
+            self.Warning.mismatched(msg)
 
     def encode(self):
         if not self._valid_data():
