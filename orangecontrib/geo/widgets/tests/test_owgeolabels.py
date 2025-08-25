@@ -129,6 +129,21 @@ class TestOWGeocoding(WidgetTest):
         out = self.get_output(w.Outputs.coded_data)
         self.assertIsNone(out)
 
+    def test_no_valid_columns(self):
+        error = self.widget.Error.no_valid_columns
+
+        self.send_signal(Table("titanic"))
+        self.assertTrue(error.is_shown())
+
+        self.send_signal(self.data)
+        self.assertFalse(error.is_shown())
+
+        self.send_signal(Table("titanic"))
+        self.assertTrue(error.is_shown())
+
+        self.send_signal(None)
+        self.assertFalse(error.is_shown())
+
     def test_report(self):
         w = self.widget
         simulate.combobox_activate_index(w.controls.admin, 1)

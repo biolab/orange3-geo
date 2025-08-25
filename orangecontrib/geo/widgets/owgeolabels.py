@@ -35,6 +35,9 @@ class OWGeoLabels(widget.OWWidget):
     class Outputs:
         coded_data = Output("Data", Table, default=True)
 
+    class Error(widget.OWWidget.Error):
+        no_valid_columns = widget.Msg("Input data contains no numeric columns.")
+
     want_main_area = False
     resizing_enabled = False
 
@@ -99,6 +102,7 @@ class OWGeoLabels(widget.OWWidget):
             self.lat_attr, self.lon_attr = find_lat_lon(data)
             self.openContext(data)
 
+        self.Error.no_valid_columns(shown=data and not self.domainmodel)
         self.commit.now()
 
     @gui.deferred
