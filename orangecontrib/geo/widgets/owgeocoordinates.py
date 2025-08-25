@@ -31,7 +31,7 @@ class ReplacementModel(QAbstractTableModel):
         if parent and parent.isValid() \
                 or not self.unmatched and not self.matched:
             return 0
-        return len(self.unmatched) + len(self.matched) + 1
+        return len(self.unmatched) + len(self.matched)
 
     def columnCount(self, parent=None, *_, **__):
         if parent and parent.isValid():
@@ -51,8 +51,7 @@ class ReplacementModel(QAbstractTableModel):
 
     def flags(self, index):
         flags = super().flags(index)
-        if not index.isValid() or index.column() == 0 \
-                or index.row() == len(self.unmatched):
+        if not index.isValid() or index.column() == 0:
             return flags
         return flags | Qt.ItemIsEditable
 
@@ -71,15 +70,13 @@ class ReplacementModel(QAbstractTableModel):
                 return font
             if role == Qt.ToolTipRole:
                 return "Unknown region name; provide a recognized synonym."
-        elif row > nunmatched:  # But not equal - the middle line is empty!
-            row -= nunmatched + 1
+        else:
+            row -= nunmatched
             if role == Qt.DisplayRole:
                 item = self.matched[row]
                 return item[index.column()] or f"({item[0]})"
             if role == Qt.ToolTipRole:
                 return "Region recognized; you may change it if necessary."
-
-        return None
 
     def setData(self, index, value, role=None):
         if not index.isValid() or index.column() > 1 or role != Qt.EditRole:
@@ -88,7 +85,7 @@ class ReplacementModel(QAbstractTableModel):
         if row < len(self.unmatched):
             self.unmatched[row][index.column()] = value
         else:
-            self.matched[row - len(self.unmatched)  - 1][index.column()] = value
+            self.matched[row - len(self.unmatched)][index.column()] = value
         return True
 
     def replacements(self):

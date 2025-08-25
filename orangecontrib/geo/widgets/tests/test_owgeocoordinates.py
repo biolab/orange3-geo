@@ -22,14 +22,12 @@ class TestReplacementsModel(GuiTest):
             [["Foo", ""], ["Bar", ""]],
             [["Baz", ""]])
 
-        self.assertEqual(model.rowCount(), 4)
+        self.assertEqual(model.rowCount(), 3)
         self.assertEqual(model.data(model.index(0, 0)), "Foo")
         self.assertEqual(model.data(model.index(1, 0)), "Bar")
         self.assertEqual(model.data(model.index(1, 1)), "")
-        self.assertEqual(model.data(model.index(2, 0)), None)
-        self.assertEqual(model.data(model.index(2, 1)), None)
-        self.assertEqual(model.data(model.index(3, 0)), "Baz")
-        self.assertEqual(model.data(model.index(3, 1)), "(Baz)")
+        self.assertEqual(model.data(model.index(2, 0)), "Baz")
+        self.assertEqual(model.data(model.index(2, 1)), "(Baz)")
         self.assertEqual(model.replacements(), {})
 
         self.assertTrue(model.setData(model.index(1, 1), "Barchik", Qt.EditRole))
@@ -37,8 +35,8 @@ class TestReplacementsModel(GuiTest):
         self.assertEqual(model.replacements(),
                          {"Bar": "Barchik"})
 
-        self.assertTrue(model.setData(model.index(3, 1), "Buzz", Qt.EditRole))
-        self.assertEqual(model.data(model.index(3, 1)), "Buzz")
+        self.assertTrue(model.setData(model.index(2, 1), "Buzz", Qt.EditRole))
+        self.assertEqual(model.data(model.index(2, 1)), "Buzz")
         self.assertEqual(model.replacements(),
                          {"Bar": "Barchik", "Baz": "Buzz"})
 
