@@ -346,7 +346,7 @@ class TestOWGeocoding(WidgetTest):
             )
         )
 
-    def test_warnings(self):
+    def test_mismatch_warning(self):
         warning = self.widget.Warning.mismatched
 
         self.send_signal(self.data)
@@ -375,6 +375,22 @@ class TestOWGeocoding(WidgetTest):
         self.widget.replacements_changed("Maribor", "Berlin")
         self.assertNotIn("2", str(warning))
         self.assertNotIn("1", str(warning))
+
+    def test_no_valid_columns(self):
+        error = self.widget.Error.no_valid_columns
+
+        self.send_signal(Table("iris")[:, :4])
+        self.assertTrue(error.is_shown())
+
+        self.send_signal(self.data)
+        self.assertFalse(error.is_shown())
+
+        self.send_signal(Table("iris")[:, :4])
+        self.assertTrue(error.is_shown())
+
+        self.send_signal(None)
+        self.assertFalse(error.is_shown())
+
 
 if __name__ == "__main__":
     unittest.main()

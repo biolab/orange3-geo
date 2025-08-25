@@ -158,6 +158,9 @@ class OWGeoCoordinates(widget.OWWidget):
     class Warning(widget.OWWidget.Warning):
         mismatched = widget.Msg("{}")
 
+    class Error(widget.OWWidget.Error):
+        no_valid_columns = widget.Msg("No suitable columns in input data")
+
     want_main_area = False
     resizing_enabled = False
 
@@ -264,6 +267,7 @@ class OWGeoCoordinates(widget.OWWidget):
     def set_data(self, data):
         self.closeContext()
         self.Warning.clear()
+        self.Error.clear()
         self.data = data
 
         if data is None or not len(data):
@@ -274,7 +278,12 @@ class OWGeoCoordinates(widget.OWWidget):
             return
 
         self.domainmodel.set_domain(data.domain)
-        self.region_attr = self.domainmodel[0] if self.domainmodel else None
+        if self.domainmodel:
+            self.region_attr = self.domainmodel[0]
+        else:
+            self.region_attr = None
+            self.Error.no_valid_columns()
+
         self.guess_region_type()
         self.openContext(data)
         self.region_type_combo.setCurrentText(RegionTypes[self.region_type].name)
