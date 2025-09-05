@@ -1,0 +1,234 @@
+﻿Country,Region,Continent
+Nepal,Asia,Asia
+Belarus,Europe,Europe
+Switzerland,Europe,Europe
+Vatican City,Europe,Europe
+Afghanistan,Asia,Asia
+Albania,Europe,Europe
+Algeria,Africa,Africa
+American Samoa,Oceania,Asia
+Andorra,Europe,Europe
+Angola,Africa,Africa
+Anguilla,S America,America
+Antigua and Barbuda,S America,America
+Argentina,S America,America
+Armenia,Asia,Asia
+Aruba,S America,America
+Australia,Australia,Australia
+Austria,Europe,Europe
+Azerbaijan,Asia,Asia
+Bahamas,C America,America
+Bahrain,Asia,Asia
+Bangladesh,Asia,Asia
+Barbados,S America,America
+Belgium,Europe,Europe
+Belize,C America,America
+Benin,Africa,Africa
+Bermuda,C America,America
+Bhutan,Asia,Asia
+Bolivia,S America,America
+Bosnia and Herz.,Europe,Europe
+Botswana,Africa,Africa
+Brazil,S America,America
+British Virgin Islands,S America,America
+Brunei,Asia,Asia
+Bulgaria,Europe,Europe
+Burkina Faso,Africa,Africa
+Burundi,Africa,Africa
+Cabo Verde,Africa,Africa
+Cambodia,Asia,Asia
+Cameroon,Africa,Africa
+Canada,N America,America
+Cayman Islands,S America,America
+Central African Rep.,Africa,Africa
+Chad,Africa,Africa
+Chile,S America,America
+China,Asia,Asia
+Colombia,S America,America
+Comoros,Africa,Africa
+Congo,Africa,Africa
+Cook Is.,Oceania,Asia
+Costa Rica,C America,America
+Côte d'Ivoire,Africa,Africa
+Croatia,Europe,Europe
+Cuba,C America,America
+Cyprus,Asia,Asia
+Czechia,Europe,Europe
+Denmark,Europe,Europe
+Djibouti,Africa,Africa
+Dominica,S America,America
+Dominican Rep.,C America,America
+Ecuador,S America,America
+Egypt,Africa,Africa
+El Salvador,C America,America
+Equatorial Guinea,Africa,Africa
+Eritrea,Africa,Africa
+Estonia,Europe,Europe
+Eswatini,Africa,Africa
+Ethiopia,Africa,Africa
+Falkland Is.,S America,America
+Faroe Islands,Europe,Europe
+Fiji,Oceania,Asia
+Finland,Europe,Europe
+France,Europe,Europe
+French Guiana,S America,America
+French Polynesia,Oceania,Asia
+Gabon,Africa,Africa
+Georgia,Europe,Europe
+Germany,Europe,Europe
+Ghana,Africa,Africa
+Gibraltar,Europe,Europe
+Greece,Europe,Europe
+Greenland,S America,America
+Grenada,S America,America
+Guadeloupe,S America,America
+Guam,Oceania,Asia
+Guatemala,C America,America
+Guinea,Africa,Africa
+Guinea-Bissau,Africa,Africa
+Guyana,S America,America
+Haiti,S America,America
+Honduras,C America,America
+Hong Kong,Asia,Asia
+Hungary,Europe,Europe
+Iceland,Europe,Europe
+India,Asia,Asia
+Indonesia,Asia,Asia
+Iran,Asia,Asia
+Iraq,Asia,Asia
+Ireland,Europe,Europe
+Isle of Man,Europe,Europe
+Israel,Asia,Asia
+Italy,Europe,Europe
+Jamaica,C America,America
+Japan,Asia,Asia
+Jordan,Asia,Asia
+Kazakhstan,Asia,Asia
+Kenya,Africa,Africa
+Kiribati,Oceania,Asia
+Kosovo,Europe,Europe
+Kuwait,Asia,Asia
+Kyrgyzstan,Asia,Asia
+Laos,Asia,Asia
+Latvia,Europe,Europe
+Lebanon,Asia,Asia
+Lesotho,Africa,Africa
+Liberia,Africa,Africa
+Libya,Africa,Africa
+Liechtenstein,Europe,Europe
+Lithuania,Europe,Europe
+Luxembourg,Europe,Europe
+Macau,Asia,Asia
+Madagascar,Africa,Africa
+Malawi,Africa,Africa
+Malaysia,Asia,Asia
+Maldives,Asia,Asia
+Mali,Africa,Africa
+Malta,Europe,Europe
+Marshall Is.,Oceania,Asia
+Martinique,S America,America
+Mauritania,Africa,Africa
+Mauritius,Africa,Africa
+Mayotte,Africa,Africa
+Mexico,N America,America
+Micronesia,Oceania,Asia
+Moldova,Europe,Europe
+Monaco,Europe,Europe
+Mongolia,Asia,Asia
+Montenegro,Europe,Europe
+Montserrat,S America,America
+Morocco,Africa,Africa
+Mozambique,Africa,Africa
+Myanmar,Asia,Asia
+Namibia,Africa,Africa
+Nauru,Oceania,Asia
+Netherlands,Europe,Europe
+Netherlands Antilles,S America,America
+New Caledonia,Oceania,Asia
+New Zealand,Australia,Australia
+Nicaragua,C America,America
+Niger,Africa,Africa
+Nigeria,Africa,Africa
+Niue,Oceania,Asia
+North Korea,Asia,Asia
+N. Mariana Is.,Oceania,Asia
+Norway,Europe,Europe
+Oman,Asia,Asia
+Pakistan,Asia,Asia
+Palau,Oceania,Asia
+Palestine,Asia,Asia
+Panama,C America,America
+Papua New Guinea,Oceania,Asia
+Paraguay,S America,America
+Peru,S America,America
+Philippines,Asia,Asia
+Poland,Europe,Europe
+Portugal,Europe,Europe
+Puerto Rico,C America,America
+Qatar,Asia,Asia
+Réunion,Africa,Africa
+Romania,Europe,Europe
+Russia,Europe,Europe
+Rwanda,Africa,Africa
+Saint Helena,Africa,Africa
+Saint Kitts and Nevis,S America,America
+Saint Lucia,S America,America
+St. Pierre and Miquelon,S America,America
+Saint Vincent and the Grenadines,S America,America
+Samoa,Oceania,Asia
+San Marino,Europe,Europe
+São Tomé and Príncipe,Africa,Africa
+Saudi Arabia,Asia,Asia
+Senegal,Africa,Africa
+Serbia,Europe,Europe
+Seychelles,Africa,Africa
+Sierra Leone,Africa,Africa
+Singapore,Asia,Asia
+Slovakia,Europe,Europe
+Slovenia,Europe,Europe
+Solomon Is.,Oceania,Asia
+Somalia,Africa,Africa
+South Africa,Africa,Africa
+South Korea,Asia,Asia
+South Sudan,Africa,Africa
+Spain,Europe,Europe
+Sri Lanka,Asia,Asia
+Sudan,Africa,Africa
+S. Sudan,Africa,Africa
+Suriname,S America,America
+Sweden,Europe,Europe
+Syria,Asia,Asia
+Taiwan,Asia,Asia
+Tajikistan,Asia,Asia
+Tanzania,Africa,Africa
+Thailand,Asia,Asia
+The Gambia,Africa,Africa
+Timor-Leste,Asia,Asia
+Togo,Africa,Africa
+Tokelau,Oceania,Asia
+Tonga,Oceania,Asia
+Trinidad and Tobago,S America,America
+Tunisia,Africa,Africa
+Turkey,Asia,Asia
+Turkmenistan,Asia,Asia
+Turks and Caicos Is.,C America,America
+Tuvalu,Oceania,Asia
+U.S. Virgin Is.,C America,America
+Uganda,Africa,Africa
+Ukraine,Europe,Europe
+United Arab Emirates,Asia,Asia
+United Kingdom,Europe,Europe
+United States of America,N America,America
+Uruguay,S America,America
+Uzbekistan,Asia,Asia
+Vanuatu,Oceania,Asia
+Venezuela,S America,America
+Vietnam,Asia,Asia
+Wallis and Futuna Is.,Oceania,Asia
+Yemen,Asia,Asia
+Zambia,Africa,Africa
+Zimbabwe,Africa,Africa
+Dem. Rep. Congo,Africa,Africa
+Macedonia,Europe,Europe
+Antarctica,Antarctica,Antarctica
+Åland,Europe,Europe
