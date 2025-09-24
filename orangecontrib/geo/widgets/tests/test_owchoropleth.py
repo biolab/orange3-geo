@@ -4,6 +4,7 @@ import numpy as np
 
 from AnyQt.QtCore import QRectF, QPointF
 
+from orangewidget.settings import Context
 from Orange.data import Table, Domain, DiscreteVariable, ContinuousVariable
 from Orange.misc.cache import memoize_method
 from Orange.widgets.tests.base import WidgetTest, WidgetOutputsTestMixin
@@ -44,12 +45,12 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
                                           self.data.domain.attributes[-1]))
         self.send_signal(self.widget.Inputs.data, data)
         self.assertIs(self.widget.agg_attr, data.domain.class_var)
-        self.assertEqual(self.widget.agg_func, "Mean")
+        self.assertEqual(self.widget.agg_func, "mean")
 
         data = self.data.transform(Domain(self.data.domain.attributes[:-1]))
         self.send_signal(self.widget.Inputs.data, data)
         self.assertIs(self.widget.agg_attr, data.domain.attributes[0])
-        self.assertEqual(self.widget.agg_func, "Mode")
+        self.assertEqual(self.widget.agg_func, "mode")
 
     def test_admin_level(self):
         self.send_signal(self.widget.Inputs.data, self.data)
@@ -70,7 +71,7 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
                               BinningPaletteItemSample)
         self.assertFalse(self.widget.is_mode())
 
-        self.widget.agg_func = "Mode"
+        self.widget.agg_func = "mode"
         self.widget.agg_attr = self.data.domain["State"]
         self.widget.setup_plot()
         self.assertIsInstance(self.widget.graph.color_legend.items[0][0],
@@ -148,11 +149,11 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
         self.send_signal(self.widget.Inputs.data, data)
 
         self.widget.agg_attr = data.domain["a"]
-        self.widget.agg_func = "Mode"
+        self.widget.on_agg_func_changed("Mode")
         np.testing.assert_equal(
             self.widget.get_palette().palette,
             a.palette.palette)
-        self.widget.agg_func = "Instance Count"
+        self.widget.on_agg_func_changed("Instance Count")
         self.assertIs(
             self.widget.get_palette(),
             DefaultContinuousPalette)
@@ -162,7 +163,7 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
         self.assertIs(
             self.widget.get_palette(),
             DefaultContinuousPalette)
-        self.widget.agg_func = "Mode"
+        self.widget.on_agg_func_changed("Mode")
         self.widget.graph.update_colors()
         self.widget.get_agg_data()
         palette = self.widget.get_palette().palette
@@ -170,6 +171,19 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
             palette[:-1],
             b.palette.palette[[1, 2, 4, 5, 6, 7, 8, 9, 10, 12]])
         np.testing.assert_equal(palette[-1], [192, 192, 192])
+
+    def test_migrate_context_2_3(self):
+        context = Context(
+            values= {'agg_attr': ('Longitude', 102),
+                     'agg_func': ('Minimal', -2),
+                     'attr_lat': ('Latitude', 102),
+                     'attr_lon': ('Longitude', 102),
+                     'graph': {}, '__version__': 2},
+            attributes= {'State': 1, 'Latitude': 2, 'Longitude': 2,
+                         'Population in 2001': 2, 'Population in 2011': 2},
+                metas= {'District': 3})
+        OWChoropleth.migrate_context(context, 2)
+        self.assertEqual(context.values["agg_func"], ("min", -2))
 
 
 class TestOWChoroplethPlotGraph(WidgetTest):
