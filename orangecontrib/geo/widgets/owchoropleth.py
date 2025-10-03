@@ -28,6 +28,7 @@ from Orange.statistics.util import bincount
 from Orange.preprocess.discretize import decimal_binnings, BinDefinition,\
     time_binnings
 from Orange.widgets import gui
+from Orange.widgets.utils import colorpalettes
 from Orange.widgets.utils.annotated_data import create_annotated_table, \
     ANNOTATED_DATA_SIGNAL_NAME, create_groups_table
 from Orange.widgets.utils.plot import OWPlotGUI
@@ -904,10 +905,15 @@ class OWChoropleth(OWWidget):
     def get_palette(self):
         if self.agg_func in COUNT_AGGS:
             return DefaultContinuousPalette
-        elif self.is_mode():
-            return LimitedDiscretePalette(MAX_COLORS)
-        else:
-            return self.agg_attr.palette
+        attr = self.agg_attr
+        palette = attr.palette
+        if self.is_mode():
+            labels = self.get_reduced_agg_data(return_labels=True)
+            if labels != attr.values:
+                colors = [palette.palette[attr.to_val(label)]
+                          for label in labels[:-1]] + [[192, 192, 192]]
+                palette = colorpalettes.DiscretePalette.from_colors(colors)
+        return palette
 
     def get_color_data(self):
         return self.get_reduced_agg_data()
