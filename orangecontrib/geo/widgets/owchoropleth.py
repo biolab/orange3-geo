@@ -9,7 +9,7 @@ from AnyQt.QtCore import Qt, QObject, QSize, QRectF, pyqtSignal as Signal, \
     QPointF
 from AnyQt.QtGui import QPen, QBrush, QColor, QPolygonF, QPainter, QStaticText, QPalette
 from AnyQt.QtWidgets import QApplication, QToolTip, QGraphicsTextItem, \
-    QGraphicsRectItem
+    QGraphicsRectItem, QComboBox, QLabel
 
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import transform
@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from orangewidget.utils.itemmodels import PyListModel, signal_blocking
 from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable, \
     TimeVariable
 from Orange.data.util import array_equal
@@ -49,7 +50,6 @@ from orangecontrib.geo.utils import find_lat_lon
 from orangecontrib.geo.mapper import latlon2region, get_shape
 from orangecontrib.geo.widgets.plotutils import MapMixin, MapViewBox, \
     _TileProvider, deg2norm
-
 
 CHOROPLETH_TILE_PROVIDER = _TileProvider(
     url="http://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
@@ -143,8 +143,9 @@ class ChoroplethItem(pg.GraphicsObject):
         return "<b>Region = </b>" + region.info['name']
 
     def tooltip(self):
-        return f"<b>{self.agg_func} = {self.agg_value}</b><hr/>" \
-               f"{self._region_info}"
+        return \
+            f"<b>{NAME_TO_DISPLAY[self.agg_func]} = {self.agg_value}</b><hr/>" \
+            f"{self._region_info}"
 
     def setPen(self, pen):
         self.pen = pen
@@ -586,8 +587,11 @@ class OWChoroplethPlotMapGraph(MapMixin, OWChoroplethPlotGraph):
         self.update_view_range()
 
 
-AggDesc = NamedTuple("AggDesc", [("transform", Union[str, Callable]),
-                                 ("disc", bool), ("time", bool)])
+class AggDesc(NamedTuple):
+    name: str
+    disc: bool
+    time: bool
+    function: Optional[Callable] = None
 
 AGG_FUNCS = {
     'Instance Count': AggDesc("size", True, True),
@@ -595,20 +599,22 @@ AGG_FUNCS = {
     'Sum': AggDesc("sum", False, False),
     'Mean': AggDesc("mean", False, True),
     'Median': AggDesc("median", False, True),
-    'Mode': AggDesc(lambda x: stats.mode(x, nan_policy='omit', keepdims=True).mode[0],
-                    True, True),
+    'Mode': AggDesc("mode", True, True,
+                    lambda x: stats.mode(x, nan_policy='omit', keepdims=True).mode[0]),
     'Maximal': AggDesc("max", False, True),
     'Minimal': AggDesc("min", False, True),
     'Std.': AggDesc("std", False, False)
 }
 
+NAME_TO_DISPLAY = {v.name: k for k, v in AGG_FUNCS.items()}
+
 DEFAULT_AGG_FUNCS = {
-    DiscreteVariable: "Mode",
-    ContinuousVariable: "Mean",
-    TimeVariable: "Median"
+    DiscreteVariable: "mode",
+    ContinuousVariable: "mean",
+    TimeVariable: "median"
 }
 
-COUNT_AGGS = list(AGG_FUNCS)[:2]
+COUNT_AGGS = [agg.name for agg in AGG_FUNCS.values()][:2]
 DEFAULT_AGG_FUNC = COUNT_AGGS[0]
 
 class OWChoropleth(OWWidget):
@@ -631,7 +637,7 @@ class OWChoropleth(OWWidget):
         selected_data = Output("Selected Data", Table, default=True)
         annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table)
 
-    settings_version = 2
+    settings_version = 3
     settingsHandler = DomainContextHandler()
     selection: Optional[List[Tuple[str, int]]] = Setting(None, schema_only=True)
     auto_commit = Setting(True)
@@ -713,11 +719,17 @@ class OWChoropleth(OWWidget):
                      callback=self.update_agg, model=self.agg_attr_model,
                      **options, searchable=True)
 
-        self.agg_func_combo = gui.comboBox(agg_box, self, 'agg_func',
-                                           label='Show:',
-                                           items=[DEFAULT_AGG_FUNC],
-                                           callback=self.graph.update_colors,
-                                           **options)
+        aggf_box = gui.hBox(agg_box)
+        label = QLabel("Show:")
+        label.setFixedWidth(75)
+        aggf_box.layout().addWidget(label)
+        combo = self.agg_func_combo = QComboBox()
+        combo.setSizeAdjustPolicy(
+            QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        combo.setMinimumContentsLength(14)
+        combo.addItem(NAME_TO_DISPLAY[DEFAULT_AGG_FUNC])
+        combo.currentTextChanged.connect(self.on_agg_func_changed)
+        aggf_box.layout().addWidget(combo)
 
         visualization_box = gui.vBox(self.controlArea, box=None)
         b_slider = gui.hSlider(visualization_box, self, "binning_index",
@@ -805,27 +817,34 @@ class OWChoropleth(OWWidget):
             self.agg_attr = None
         self.attr_lat, self.attr_lon = lat, lon
 
+    def on_agg_func_changed(self, value):
+        if value:
+            self.agg_func = AGG_FUNCS[value].name
+        self.graph.update_colors()
+
     def update_agg(self):
         # Store previous aggregation to keep it, unless it was the only choice
         current_agg = self.agg_func_combo.count() > 1 and self.agg_func
-        self.agg_func_combo.clear()
+        with signal_blocking(self.agg_func_combo):
+            self.agg_func_combo.clear()
 
-        if self.agg_attr is not None:
-            new_aggs = list(AGG_FUNCS)
-            if self.agg_attr.is_discrete:
-                new_aggs = [agg for agg in AGG_FUNCS if AGG_FUNCS[agg].disc]
-            elif self.agg_attr.is_time:
-                new_aggs = [agg for agg in AGG_FUNCS if AGG_FUNCS[agg].time]
-        else:
-            new_aggs = [DEFAULT_AGG_FUNC]
+            if self.agg_attr is not None:
+                new_aggs = list(AGG_FUNCS)
+                if self.agg_attr.is_discrete:
+                    new_aggs = [agg for agg in AGG_FUNCS if AGG_FUNCS[agg].disc]
+                elif self.agg_attr.is_time:
+                    new_aggs = [agg for agg in AGG_FUNCS if AGG_FUNCS[agg].time]
+            else:
+                new_aggs = [NAME_TO_DISPLAY[DEFAULT_AGG_FUNC]]
 
-        self.agg_func_combo.addItems(new_aggs)
+            self.agg_func_combo.addItems(new_aggs)
 
-        if current_agg in new_aggs:
-            self.agg_func = current_agg
-        else:
-            self.agg_func = DEFAULT_AGG_FUNCS.get(type(self.agg_attr),
-                                                  DEFAULT_AGG_FUNC)
+            if current_agg in {AGG_FUNCS[agg].name for agg in new_aggs}:
+                self.agg_func = current_agg
+                self.agg_func_combo.setCurrentText(NAME_TO_DISPLAY[self.agg_func])
+            else:
+                self.agg_func = DEFAULT_AGG_FUNCS.get(type(self.agg_attr),
+                                                      DEFAULT_AGG_FUNC)
 
         self.graph.update_colors()
 
@@ -955,7 +974,7 @@ class OWChoropleth(OWWidget):
     def is_mode(self):
         return self.agg_attr is not None and \
                self.agg_attr.is_discrete and \
-               self.agg_func == 'Mode'
+               self.agg_func == 'mode'
 
     def is_time(self):
         return self.agg_attr is not None and \
@@ -998,9 +1017,10 @@ class OWChoropleth(OWWidget):
             data = np.ones(len(self.data))
 
         ids, _, _ = self.get_regions(lat_attr, lon_attr, admin)
+        aggreg = AGG_FUNCS[NAME_TO_DISPLAY[agg_func]]
         result = pd.Series(data, dtype=float)\
             .groupby(ids)\
-            .agg(AGG_FUNCS[agg_func].transform)
+            .agg(aggreg.function or aggreg.name)
 
         return result
 
@@ -1136,6 +1156,11 @@ class OWChoropleth(OWWidget):
                                               context.values["agg_func"][1])
             elif context.values["agg_func"][0] == "Std":
                 context.values["agg_func"] = ("Std.",
+                                              context.values["agg_func"][1])
+        if version < 3:
+            agg_func = context.values.get("agg_func")[0]
+            if agg_func in AGG_FUNCS:
+                context.values["agg_func"] = (AGG_FUNCS[agg_func].name,
                                               context.values["agg_func"][1])
 
 
