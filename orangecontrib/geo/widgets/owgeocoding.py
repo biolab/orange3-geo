@@ -229,8 +229,9 @@ class OWGeocoding(widget.OWWidget):
     def commit(self):
         output = None
         if self.data is not None and len(self.data):
-            data, metas = self.decode() if self.is_decoding else self.encode()
-            if data is not None:
+            res = self.decode() if self.is_decoding else self.encode()
+            if res is not None and res[0] is not None:
+                data, metas = res
                 output = self.data.transform(
                     Domain(self.data.domain.attributes,
                            self.data.domain.class_vars,
