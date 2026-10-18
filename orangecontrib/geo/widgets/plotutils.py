@@ -1,9 +1,10 @@
 import os
 import weakref
+from dataclasses import dataclass
 from io import BytesIO
 from concurrent.futures import Future
-from typing import List, NamedTuple, Optional
-from functools import partial
+from typing import List, Optional
+from functools import partial, wraps
 from contextlib import closing
 
 from PIL import Image
@@ -11,7 +12,7 @@ import numpy as np
 
 from AnyQt.QtWidgets import QApplication
 from AnyQt.QtCore import Qt, QObject, QThread, QRect, QRectF, QUrl, \
-    pyqtSignal as Signal
+    pyqtSignal as Signal, QAbstractListModel, QModelIndex, QSettings
 from AnyQt.QtNetwork import QNetworkAccessManager, QNetworkDiskCache,\
     QNetworkRequest, QNetworkReply
 from AnyQt.QtGui import QBrush, QColor
@@ -23,7 +24,6 @@ from Orange.misc.environ import data_dir
 from Orange.widgets.utils.plot import ZOOMING
 from Orange.widgets.visualize.owscatterplotgraph import LegendItem
 from Orange.widgets.visualize.utils.plotutils import InteractiveViewBox
-
 
 MAX_LATITUDE = 85.0511287798
 MAX_LONGITUDE = 180
@@ -60,55 +60,159 @@ def tile2norm(x, y, zoom):
     return x / n, y / n
 
 
-class _TileProvider(NamedTuple):
+@dataclass
+class _TileProvider:
+    name: str
     url: str
-    attribution: str
     size: int
     max_zoom: int
+    attribution: str
     dark: bool = False
 
 
-TILE_PROVIDERS = {
-    "OpenStreetMap": _TileProvider(
+_TILE_PROVIDERS = [
+    _TileProvider(
+        name="OpenStreetMap",
         url="http://tile.openstreetmap.org/{z}/{x}/{y}.png",
         attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
         size=256,
         max_zoom=18
     ),
-    "Greyscale": _TileProvider(
+    _TileProvider(
+        name="Greyscale",
         url="http://tile.geofabrik.de/c92f820ec8abcfd7f51b075e3efa157e//{z}/{x}/{y}.png",
-        attribution='<a href="http://geofabrik.di">Geofabrik</a>',
+        attribution='<a href="http://geofabrik.de">Geofabrik</a>',
         size=256,
         max_zoom=19
     ),
-    "Topographic": _TileProvider(
+    _TileProvider(
+        name="Topographic",
         url="http://tile.opentopomap.org/{z}/{x}/{y}.png",
         attribution='map data: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
         size=256,
         max_zoom=17
     ),
-    "Satellite": _TileProvider(
+    _TileProvider(
+        name="Satellite",
         url="http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         attribution="Sources: Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community",
         size=256,
         max_zoom=19
     ),
-    "Light": _TileProvider(
+    _TileProvider(
+        name="Light",
         url="http://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
         attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
         size=256,
         max_zoom=19
     ),
-    "Dark": _TileProvider(
+    _TileProvider(
+        name="Dark",
         url="https://basemap.queeniemella.cc/tiles/countries/{z}/{x}/{y}.png",
         attribution='&copy; <a href="https://queeniemella.cc">queeniemella</a> | &copy;  <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         size=256,
         max_zoom=20,
         dark=True
-    ),
-}
+    )
+]
 
-DEFAULT_TILE_PROVIDER = next(iter(TILE_PROVIDERS))
+TILE_PROVIDERS = {tp.name: tp for tp in _TILE_PROVIDERS}
+
+DEFAULT_TILE_PROVIDER = "OpenStreetMap"
+DEFAULT_LIGHT_PROVIDER = "Greyscale"
+
+SettingsKey = "orange3-addons/geo/tile-providers"
+
+
+class TileProvidersRegistry(QObject):
+    providers_about_to_be_changed = Signal()
+    providers_changed = Signal()
+    instance = None
+
+    def __new__(cls):
+        if cls.instance is None:
+            cls.instance = super().__new__(cls)
+            QObject.__init__(cls.instance, None)
+            cls.instance.providers = (
+                QSettings().value(SettingsKey, _TILE_PROVIDERS.copy()))
+        return cls.instance
+
+    def __init__(self):
+        # Inherited __init__ must be called only once, so we do it in __new__
+        # We must override __init__ to avoid calling it again
+        pass
+
+    def __len__(self):
+        return len(self.providers)
+
+    def __getitem__(self, row):
+        return self.providers[row]
+
+    @staticmethod
+    def changes_settings(func):
+        @wraps(func)
+        def wrapped(self: "TileProvidersRegistry", *args, **kwargs):
+            self.providers_about_to_be_changed.emit()
+            try:
+                res = func(self, *args, **kwargs)
+            finally:
+                QSettings().setValue(SettingsKey, self.providers)
+                self.providers_changed.emit()
+                return res
+
+        return wrapped
+
+    def get(self, name="", default=DEFAULT_TILE_PROVIDER):
+        if name:
+            for tp in self.providers:
+                if tp.name == name:
+                    return tp
+        for tp in self.providers:
+            if tp.name == default:
+                return tp
+        assert len(self.providers) > 0, "Tile providers registry is empty"
+        return self.providers[0]
+
+    @changes_settings
+    def __setitem__(self, index, provider):
+        self.providers[index] = provider
+
+    @changes_settings
+    def __delitem__(self, index):
+        del self.providers[index]
+
+    def __iter__(self):
+        return iter(self.providers)
+
+    @changes_settings
+    def append(self, provider):
+        self.providers.append(provider)
+
+    @changes_settings
+    def reset_builtins(self):
+        self.providers[:] = \
+            _TILE_PROVIDERS \
+            + [tp for tp in self.providers if tp not in _TILE_PROVIDERS]
+
+
+class TileProviderListModel(QAbstractListModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.registry = TileProvidersRegistry()
+        self.registry.providers_about_to_be_changed.connect(self.beginResetModel)
+        self.registry.providers_changed.connect(self.endResetModel)
+
+    def rowCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else len(self.registry)
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid():
+            return None
+
+        if role == Qt.ItemDataRole.DisplayRole:
+            return self.registry[index.row()].name
+
+        return None
 
 
 class MapViewBox(InteractiveViewBox):
@@ -372,7 +476,7 @@ class MapMixin:
     show_internet_error = Signal(bool)
 
     def __init__(self):
-        self.tile_provider = TILE_PROVIDERS[DEFAULT_TILE_PROVIDER]
+        self.tile_provider = TileProvidersRegistry().get(DEFAULT_TILE_PROVIDER)
 
         self.tile_attribution = AttributionItem(
             parent=self.plot_widget.getViewBox())
@@ -535,7 +639,6 @@ class MapMixin:
         to get a tile from the internet clear no internet warning
         """
         if t.n_loadings == 3:
-            print(t)
             self.show_internet_error.emit(True)
             return
 

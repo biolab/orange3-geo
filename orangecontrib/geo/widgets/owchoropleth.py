@@ -49,14 +49,9 @@ from Orange.widgets.settings import Setting, SettingProvider, rename_setting, \
 from orangecontrib.geo.utils import find_lat_lon
 from orangecontrib.geo.mapper import latlon2region, get_shape
 from orangecontrib.geo.widgets.plotutils import MapMixin, MapViewBox, \
-    _TileProvider, deg2norm
+    deg2norm, DEFAULT_LIGHT_PROVIDER, TileProvidersRegistry
 
-CHOROPLETH_TILE_PROVIDER = _TileProvider(
-    url="http://tile.geofabrik.de/c92f820ec8abcfd7f51b075e3efa157e//{z}/{x}/{y}.png",
-    attribution='<a href="http://geofabrik.di">Geofabrik</a>',
-    size=256,
-    max_zoom=19
-)
+CHOROPLETH_TILE_PROVIDER = DEFAULT_LIGHT_PROVIDER
 
 _ChoroplethRegion = NamedTuple(
     "_ChoroplethRegion", [
@@ -556,7 +551,7 @@ class OWChoroplethPlotMapGraph(MapMixin, OWChoroplethPlotGraph):
     def __init__(self, widget, parent):
         OWChoroplethPlotGraph.__init__(self, widget, parent)
         MapMixin.__init__(self)
-        self._update_tile_provider(CHOROPLETH_TILE_PROVIDER)
+        self._update_tile_provider(TileProvidersRegistry().get(CHOROPLETH_TILE_PROVIDER))
 
     def update_view_range(self, match_data=True):
         if match_data:

@@ -15,8 +15,8 @@ from Orange.widgets.visualize.utils.widget import OWDataProjectionWidget
 
 from orangecontrib.geo.utils import find_lat_lon
 from orangecontrib.geo.widgets.plotutils import MapMixin, MapViewBox, \
-    deg2norm, MAX_LONGITUDE, MAX_LATITUDE, TILE_PROVIDERS, DEFAULT_TILE_PROVIDER
-
+    deg2norm, MAX_LONGITUDE, MAX_LATITUDE, TileProvidersRegistry, \
+    DEFAULT_TILE_PROVIDER, TileProviderListModel
 
 class OWScatterPlotMapGraph(MapMixin, OWScatterPlotBase):
     """
@@ -80,7 +80,9 @@ class OWScatterPlotMapGraph(MapMixin, OWScatterPlotBase):
         self.update_view_range()
 
     def update_tile_provider(self):
-        super()._update_tile_provider(TILE_PROVIDERS[self.tile_provider_key])
+        provider = TileProvidersRegistry().get(
+            self.tile_provider_key, DEFAULT_TILE_PROVIDER)
+        super()._update_tile_provider(provider)
 
     def clear(self):
         super().clear()
@@ -140,6 +142,8 @@ class OWMap(OWDataProjectionWidget):
         self._update_label_colors()
         self.graph.show_internet_error.connect(self._show_internet_error)
 
+        TileProvidersRegistry().providers_changed.connect(self.update_tile_provider)
+
     def sizeHint(self):
         return QSize(950, 550)
 
@@ -160,7 +164,7 @@ class OWMap(OWDataProjectionWidget):
         )
 
         gui.comboBox(lat_lon_box, self, 'graph.tile_provider_key', label='Map:',
-                     items=list(TILE_PROVIDERS),
+                     model=TileProviderListModel(),
                      callback=self.update_tile_provider, **options)
 
         gui.comboBox(lat_lon_box, self, 'attr_lat', label='Latitude:',
