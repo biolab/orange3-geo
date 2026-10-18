@@ -52,8 +52,8 @@ from orangecontrib.geo.widgets.plotutils import MapMixin, MapViewBox, \
 
 
 CHOROPLETH_TILE_PROVIDER = _TileProvider(
-    url="http://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-    attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    url="http://tile.geofabrik.de/c92f820ec8abcfd7f51b075e3efa157e//{z}/{x}/{y}.png",
+    attribution='<a href="http://geofabrik.di">Geofabrik</a>',
     size=256,
     max_zoom=19
 )

@@ -100,10 +100,10 @@ TILE_PROVIDERS = {
         max_zoom=19
     ),
     "Dark": _TileProvider(
-        url="http://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-        attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        url="https://basemap.queeniemella.cc/tiles/countries/{z}/{x}/{y}.png",
+        attribution='&copy; <a href="https://queeniemella.cc">queeniemella</a> | &copy;  <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         size=256,
-        max_zoom=19,
+        max_zoom=20,
         dark=True
     ),
 }
