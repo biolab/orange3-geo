@@ -16,7 +16,7 @@ from Orange.widgets.visualize.utils.widget import OWDataProjectionWidget
 from orangecontrib.geo.utils import find_lat_lon
 from orangecontrib.geo.widgets.plotutils import MapMixin, MapViewBox, \
     deg2norm, MAX_LONGITUDE, MAX_LATITUDE, TileProvidersRegistry, \
-    DEFAULT_TILE_PROVIDER, TileProviderListModel
+    TileProviderListModel
 
 class OWScatterPlotMapGraph(MapMixin, OWScatterPlotBase):
     """
@@ -25,7 +25,7 @@ class OWScatterPlotMapGraph(MapMixin, OWScatterPlotBase):
     matches displayed images of maps.
     """
     freeze = settings.Setting(False)
-    tile_provider_key = settings.Setting(DEFAULT_TILE_PROVIDER)
+    tile_provider_key = settings.Setting("")
 
     def __init__(self, scatter_widget, parent):
         OWScatterPlotBase.__init__(self, scatter_widget, parent,
@@ -80,8 +80,7 @@ class OWScatterPlotMapGraph(MapMixin, OWScatterPlotBase):
         self.update_view_range()
 
     def update_tile_provider(self):
-        provider = TileProvidersRegistry().get(
-            self.tile_provider_key, DEFAULT_TILE_PROVIDER)
+        provider = TileProvidersRegistry().get(self.tile_provider_key)
         super()._update_tile_provider(provider)
 
     def clear(self):
@@ -295,7 +294,7 @@ class OWMap(OWDataProjectionWidget):
             _settings["graph"] = {}
             if "tile_provider" in _settings:
                 if _settings["tile_provider"] == "Watercolor":
-                    _settings["tile_provider"] = DEFAULT_TILE_PROVIDER
+                    _settings["tile_provider"] = ""
                 _settings["graph"]["tile_provider_key"] = \
                     _settings["tile_provider"]
             if "opacity" in _settings:
