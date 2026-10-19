@@ -1135,6 +1135,8 @@ widgets/owchoropleth.py:
             {} points are not in any region.: {} točk(a) ne pripada nobeni regiji.
         def `_add_controls`:
             Map settings: Nastavitve zemljevida
+            graph.tile_provider_key: false
+            Map:: Zemljevid:
             attr_lat: false
             Latitude:: Širina:
             attr_lon: false
