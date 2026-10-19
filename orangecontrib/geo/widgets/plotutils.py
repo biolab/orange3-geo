@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import weakref
 from dataclasses import dataclass
@@ -6,6 +7,7 @@ from concurrent.futures import Future
 from typing import List, Optional
 from functools import partial, wraps
 from contextlib import closing
+import json
 
 from PIL import Image
 import numpy as np
@@ -154,11 +156,10 @@ class TileProvidersRegistry(QObject):
         def wrapped(self: "TileProvidersRegistry", *args, **kwargs):
             self.providers_about_to_be_changed.emit()
             try:
-                res = func(self, *args, **kwargs)
+                return func(self, *args, **kwargs)
             finally:
                 QSettings().setValue(SettingsKey, self.providers)
                 self.providers_changed.emit()
-                return res
 
         return wrapped
 
@@ -193,6 +194,24 @@ class TileProvidersRegistry(QObject):
         self.providers[:] = \
             _TILE_PROVIDERS \
             + [tp for tp in self.providers if tp not in _TILE_PROVIDERS]
+
+    def save_to_file(self, file):
+        json.dump([tp.__dict__ for tp in self.providers], file, indent=4)
+
+    @changes_settings
+    def load_from_file(self, file):
+        try:
+            providers = json.load(file)
+            if len(providers) == 0:
+                raise ValueError("No tile providers found in the file.")
+            fields = {field.name for field in dataclasses.fields(_TileProvider)}
+            if not all(isinstance(tp, dict) and set(tp.keys()) == fields
+                       for tp in providers):
+                raise ValueError("Invalid tile provider format in the file.")
+            self.providers[:] = [_TileProvider(**tp) for tp in providers]
+        except Exception as e:
+            raise ValueError(f"Failed to load tile providers: {e}")
+
 
 
 class TileProviderListModel(QAbstractListModel):

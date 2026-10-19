@@ -1420,12 +1420,24 @@ widgets/owmanagegeoservices.py:
             Add Provider: Dodaj ponudnika
             Remove Selected Providers: Odstrani izbrane ponudnike
             Restore Default Providers: Obnovi privzete ponudnike
+            Save to File: Shrani v datoteko
+            Load: Naloži
         def `add_tile_provider`:
             Custom provider: Nov ponudnik
             http://<HOST>/{z}/{x}/{y}.png: false
         def `remove_selected_providers`:
             Remove Providers: Odstrani ponudnike
             Cannot remove all providers.: Ni mogoče odstraniti vseh ponudnikov.
+        def `save`:
+            Save Tile Providers: Shrani ponudnike zemljevidov
+            JSON Files (*.json);;All Files (*): Datoteke JSON (*.json);;Vse datoteke (*)
+            w: false
+            utf-8: false
+        def `load`:
+            Load Tile Providers: Naloži ponudnike zemljevidov
+            JSON Files (*.json);;All Files (*): Datoteke JSON (*.json);;Vse datoteke (*)
+            r: false
+            utf-8: false
     __main__: false
 widgets/owmap.py:
     class `OWMap`:
@@ -1517,6 +1529,10 @@ widgets/plotutils.py:
                 TileProvidersRegistry: false
         def `get`:
             Tile providers registry is empty: false
+        def `load_from_file`:
+            No tile providers found in the file.: false
+            Invalid tile provider format in the file.: false
+            'Failed to load tile providers: {e}': false
     class `MapViewBox`:
         def `mouseDragEvent`:
             mouseMode: false

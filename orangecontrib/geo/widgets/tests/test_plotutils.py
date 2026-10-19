@@ -1,6 +1,8 @@
 import dataclasses
 import unittest
 from unittest.mock import Mock, patch
+import io
+import json
 
 import numpy as np
 import pyqtgraph as pg
@@ -329,6 +331,36 @@ class TestTileProvidersRegistry(GuiTest):
         self.assertEqual(len(spy1), 1)
         self.assertEqual(len(spy2), 1)
         self.assertEqual(registry.providers, _TILE_PROVIDERS + [changed] + self.mock_providers)
+
+    def test_save_to_file(self):
+        registry = TileProvidersRegistry()
+        registry.append(self.mock_providers[0])
+        registry.append(self.mock_providers[1])
+
+        f = io.StringIO()
+        registry.save_to_file(f)
+        f.seek(0)
+        data = json.load(f)
+        self.assertEqual(data, [dataclasses.asdict(p) for p in registry.providers])
+
+    def test_load_from_file(self):
+        registry = TileProvidersRegistry()
+        registry.append(self.mock_providers[0])
+        registry.append(self.mock_providers[1])
+
+        data = [dataclasses.asdict(p) for p in registry.providers]
+        f = io.StringIO(json.dumps(data))
+        f.seek(0)
+        registry.load_from_file(f)
+        self.assertEqual(registry.providers, _TILE_PROVIDERS + self.mock_providers)
+
+        for s in ("invalid json", [], [1, 2, 3],
+                  {"name": "Incomplete Provider"},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{z}/{x}/{y}.png",
+                   "attribution": "Attribution", "size": 256, "max_zoom": 5, "extra_field": "extra"}):
+            f = io.StringIO(str(s))
+            f.seek(0)
+            self.assertRaises(ValueError, registry.load_from_file, f)
 
 
 class TestTileProviderListModel(GuiTest):

@@ -1,7 +1,7 @@
 import dataclasses
 
 from AnyQt.QtCore import Qt, QModelIndex, QAbstractTableModel
-from AnyQt.QtWidgets import QTableView, QLayout, QMessageBox
+from AnyQt.QtWidgets import QTableView, QLayout, QMessageBox, QFileDialog
 
 from orangewidget.utils.widgetpreview import WidgetPreview
 from Orange.widgets import gui, widget
@@ -93,6 +93,8 @@ class OWManageGeoServices(widget.OWWidget):
                    callback=self.remove_selected_providers)
         gui.button(buttons, self, "Restore Default Providers",
                    callback=self.restore_default_providers)
+        gui.button(buttons, self, "Save to File", callback=self.save)
+        gui.button(buttons, self, "Load", callback=self.load)
 
         self._resize_table()
         self.adjustSize()
@@ -138,6 +140,22 @@ class OWManageGeoServices(widget.OWWidget):
 
     def restore_default_providers(self):
         self.registry.reset_builtins()
+
+    def save(self):
+        name = QFileDialog.getSaveFileName(
+            self, "Save Tile Providers", "", "JSON Files (*.json);;All Files (*)")[0]
+        if not name:
+            return
+        with open(name, "w", encoding="utf-8") as f:
+            self.registry.save_to_file(f)
+
+    def load(self):
+        name = QFileDialog.getOpenFileName(
+            self, "Load Tile Providers", "", "JSON Files (*.json);;All Files (*)")[0]
+        if not name:
+            return
+        with open(name, "r", encoding="utf-8") as f:
+            self.registry.load_from_file(f)
 
 
 

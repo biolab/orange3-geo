@@ -155,6 +155,44 @@ class TestOWManageGeoServices(WidgetTest):
             self.widget.registry.providers,
             _TILE_PROVIDERS + [replaced, new_provider])
 
+    def test_save(self):
+        with patch("AnyQt.QtWidgets.QFileDialog.getSaveFileName",
+                   return_value=("test.json", "JSON Files (*.json)")) as dialog, \
+                patch("builtins.open", unittest.mock.mock_open()) as m_open, \
+                patch.object(self.widget.registry, "save_to_file") as save:
+            self.widget.save()
+        dialog.assert_called_once()
+        m_open.assert_called_once_with("test.json", "w", encoding="utf-8")
+        save.assert_called_once()
+
+        with patch("AnyQt.QtWidgets.QFileDialog.getSaveFileName",
+                   return_value=(None, "")) as dialog, \
+                patch("builtins.open", unittest.mock.mock_open()) as m_open, \
+                patch.object(self.widget.registry, "save_to_file") as save:
+            self.widget.save()
+        dialog.assert_called_once()
+        m_open.assert_not_called()
+        save.assert_not_called()
+
+    def test_load(self):
+        with patch("AnyQt.QtWidgets.QFileDialog.getOpenFileName",
+                   return_value=("test.json", "JSON Files (*.json)")) as dialog, \
+                patch("builtins.open", unittest.mock.mock_open()) as m_open, \
+                patch.object(self.widget.registry, "load_from_file") as load:
+            self.widget.load()
+        dialog.assert_called_once()
+        m_open.assert_called_once_with("test.json", "r", encoding="utf-8")
+        load.assert_called_once()
+
+        with patch("AnyQt.QtWidgets.QFileDialog.getOpenFileName",
+                   return_value=(None, "")) as dialog, \
+                patch("builtins.open", unittest.mock.mock_open()) as m_open, \
+                patch.object(self.widget.registry, "load_from_file") as load:
+            self.widget.load()
+        dialog.assert_called_once()
+        m_open.assert_not_called()
+        load.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
