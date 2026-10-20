@@ -47,6 +47,14 @@ class TileProviderModel(QAbstractTableModel):
             value = field.type(value)
         except ValueError:
             return False
+        if field.name == "size" and value <= 0:
+            return False
+        if field.name == "url":
+            try:
+                if field.name == "url":
+                    value.format(x=0, y=0, z=0)
+            except (ValueError, KeyError, IndexError, AttributeError, TypeError):
+                return False
         self.registry[row] = dataclasses.replace(provider, **{field.name: value})
         return True
 
@@ -154,8 +162,11 @@ class OWManageGeoServices(widget.OWWidget):
             self, "Load Tile Providers", "", "JSON Files (*.json);;All Files (*)")[0]
         if not name:
             return
-        with open(name, "r", encoding="utf-8") as f:
-            self.registry.load_from_file(f)
+        try:
+            with open(name, "r", encoding="utf-8") as f:
+                self.registry.load_from_file(f)
+        except OSError as exc:
+            QMessageBox.warning(self, "Load Tile Providers", str(exc))
 
 
 

@@ -200,18 +200,38 @@ class TileProvidersRegistry(QObject):
 
     @changes_settings
     def load_from_file(self, file):
+        def check_url(url):
+            try:
+                url.format(x=1, y=2, z=3)
+            except (ValueError, KeyError, IndexError, AttributeError, TypeError):
+                return False
+            else:
+                return True
+
+        def check_types(tp):
+            for field in dataclasses.fields(_TileProvider):
+                value_type = type(tp[field.name])
+                if value_type is not field.type:
+                    raise ValueError(
+                        f"{tp['name']}: field must be {field.type}, "
+                        f"not {value_type}")
+            return True
+
         try:
             providers = json.load(file)
             if len(providers) == 0:
                 raise ValueError("No tile providers found in the file.")
             fields = {field.name for field in dataclasses.fields(_TileProvider)}
-            if not all(isinstance(tp, dict) and set(tp.keys()) == fields
+            if not all(isinstance(tp, dict)
+                       and set(tp.keys()) == fields
+                       and tp["size"] >= 0
+                       and check_url(tp["url"])
+                       and check_types(tp)
                        for tp in providers):
                 raise ValueError("Invalid tile provider format in the file.")
             self.providers[:] = [_TileProvider(**tp) for tp in providers]
         except Exception as e:
             raise ValueError(f"Failed to load tile providers: {e}")
-
 
 
 class TileProviderListModel(QAbstractListModel):

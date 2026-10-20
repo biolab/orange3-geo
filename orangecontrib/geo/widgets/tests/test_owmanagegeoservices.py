@@ -64,6 +64,18 @@ class TestTileProviderModel(GuiTest):
         self.assertFalse(self.model.setData(self.model.index(3, 2), "invalid"))
         self.assertEqual(self.model.registry[3].size, 32)  # unchanged
 
+        self.assertFalse(self.model.setData(self.model.index(3, 2), "0"))
+        self.assertEqual(self.model.registry[3].size, 32)  # unchanged
+
+        self.assertFalse(self.model.setData(self.model.index(3, 2), "-1"))
+        self.assertEqual(self.model.registry[3].size, 32)  # unchanged
+
+        self.assertFalse(self.model.setData(self.model.index(3, 1),
+                                            "https://test.com{s}"))
+        self.assertEqual(self.model.registry[3].url,
+                         "http://test.com/{z}/{x}/{y}.png")
+
+
     def test_flags(self):
         index = self.model.index(0, 0)
         self.assertTrue(self.model.flags(index) & Qt.ItemFlag.ItemIsEditable)

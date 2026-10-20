@@ -1410,6 +1410,9 @@ widgets/owmanagegeoservices.py:
         Attribution: Avtorske pravice
         def `data`:
             '⦿ ': false
+        def `setData`:
+            size: false
+            url: false
     class `OWManageGeoServices`:
         Manage Geo Services: Upravljanje geografskih storitev
         Manage services used by Geo Widgets: Upravljanje storitev, ki jih uporabljajo geografski pripomočki
@@ -1530,7 +1533,12 @@ widgets/plotutils.py:
         def `get`:
             Tile providers registry is empty: false
         def `load_from_file`:
+            def `check_types`:
+                "{tp['name']}: field must be {field.type}, ": false
+                not {value_type}: false
             No tile providers found in the file.: false
+            size: false
+            url: false
             Invalid tile provider format in the file.: false
             'Failed to load tile providers: {e}': false
     class `MapViewBox`:

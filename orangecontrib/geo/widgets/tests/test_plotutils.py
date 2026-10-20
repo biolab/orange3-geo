@@ -357,7 +357,20 @@ class TestTileProvidersRegistry(GuiTest):
         for s in ("invalid json", [], [1, 2, 3],
                   {"name": "Incomplete Provider"},
                   {"name": "Overcomplete Provider", "url": "http://example.com/{z}/{x}/{y}.png",
-                   "attribution": "Attribution", "size": 256, "max_zoom": 5, "extra_field": "extra"}):
+                   "attribution": "Attribution", "size": 256, "max_zoom": 5, "extra_field": "extra"},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{z}/{x}/{y}.png",
+                   "attribution": "Attribution", "size": 0, "max_zoom": 5, "extra_field": "extra"},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{s}/{x}/{y}.png",
+                   "attribution": "Attribution", "size": 1, "max_zoom": 5},
+                  {"name": "Overcomplete Provider", "url": None,
+                   "attribution": "Attribution", "size": 13, "max_zoom": 5},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{s}/{x}/{y}.png",
+                   "attribution": None, "size": 1, "max_zoom": 5},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{s}/{x}/{y}.png",
+                   "attribution": "Attribution", "size": "1", "max_zoom": 5},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{s}/{x}/{y}.png",
+                   "attribution": "Attribution", "size": 1, "max_zoom": "5"},
+                  ):
             f = io.StringIO(str(s))
             f.seek(0)
             self.assertRaises(ValueError, registry.load_from_file, f)
@@ -365,7 +378,15 @@ class TestTileProvidersRegistry(GuiTest):
 
 class TestTileProviderListModel(GuiTest):
     def setUp(self):
+        self.patch_settings = patch(
+            "orangecontrib.geo.widgets.plotutils.QSettings.setValue")
+        self.patch_settings.start()
+        self.addCleanup(self.patch_settings.stop)
+
         self.registry = TileProvidersRegistry()
+        providers = self.registry.providers
+        self.addCleanup(setattr, self.registry, "providers", providers)
+
         # Just for the case the widget settings have been changed manually and stored
         self.registry.providers = _TILE_PROVIDERS.copy()
         self.model = TileProviderListModel()
