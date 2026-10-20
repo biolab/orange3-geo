@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from AnyQt.QtCore import Qt
 from AnyQt.QtGui import QColor, QPalette
@@ -18,7 +18,8 @@ from Orange.widgets.tests.base import (
     WidgetTest, WidgetOutputsTestMixin, ProjectionWidgetTestMixin
 )
 from orangecontrib.geo.widgets.owmap import OWMap, OWScatterPlotMapGraph
-from orangecontrib.geo.widgets.plotutils import TILE_PROVIDERS
+from orangecontrib.geo.widgets.plotutils import TILE_PROVIDERS, \
+    TileProvidersRegistry, _TileProvider, _TILE_PROVIDERS
 
 
 class TestOWMap(WidgetTest, ProjectionWidgetTestMixin, WidgetOutputsTestMixin):
@@ -59,28 +60,24 @@ class TestOWMap(WidgetTest, ProjectionWidgetTestMixin, WidgetOutputsTestMixin):
     def test_label_colors(self):
         widget = self.widget
         self.send_signal(widget.Inputs.data, self.data)
+        url = _TILE_PROVIDERS[0].url
+        bright = _TileProvider(name="Bright", url=url, size=256, max_zoom=18, attribution="", dark=False)
+        dark = _TileProvider(name="Dark", url=url, size=256, max_zoom=18, attribution="", dark=True)
+        with patch.object(TileProvidersRegistry(), "providers", new=[bright, dark]):
+            white = QColor(Qt.white)
+            palette = widget.graph.plot_widget.palette
 
-        # Pick any
-        for key, provider in TILE_PROVIDERS.items():
-            if provider.dark:
-                dark = key
-            else:
-                bright = key
+            widget.graph.tile_provider_key = dark.name
+            widget.update_tile_provider()
+            self.assertEqual(palette().color(QPalette.Text), white)
 
-        white = QColor(Qt.white)
-        palette = widget.graph.plot_widget.palette
+            widget.graph.tile_provider_key = bright.name
+            widget.update_tile_provider()
+            self.assertNotEqual(palette().color(QPalette.Text), white)
 
-        widget.graph.tile_provider_key = dark
-        widget.update_tile_provider()
-        self.assertEqual(palette().color(QPalette.Text), white)
-
-        widget.graph.tile_provider_key = bright
-        widget.update_tile_provider()
-        self.assertNotEqual(palette().color(QPalette.Text), white)
-
-        widget.graph.tile_provider_key = dark
-        widget.update_tile_provider()
-        self.assertEqual(palette().color(QPalette.Text), white)
+            widget.graph.tile_provider_key = dark.name
+            widget.update_tile_provider()
+            self.assertEqual(palette().color(QPalette.Text), white)
 
     def test_send_report(self):
         self.send_signal(self.widget.Inputs.data, self.data)

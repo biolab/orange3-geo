@@ -1,15 +1,21 @@
+import dataclasses
 import unittest
 from unittest.mock import Mock, patch
+import io
+import json
 
 import numpy as np
 import pyqtgraph as pg
 
 from AnyQt.QtCore import Qt, QObject, QRectF, QRect
+from AnyQt.QtTest import QSignalSpy
 
-from Orange.widgets.tests.base import WidgetTest
+from Orange.widgets.tests.base import WidgetTest, GuiTest
 from Orange.widgets.utils.plot import ZOOMING
 from orangecontrib.geo.widgets.plotutils import deg2norm, norm2tile, \
-    tile2norm, MapViewBox, TILE_PROVIDERS, DEFAULT_TILE_PROVIDER, MapMixin
+    tile2norm, MapViewBox, _TILE_PROVIDERS, DEFAULT_TILE_PROVIDER, MapMixin, \
+    _TileProvider, TileProvidersRegistry, SettingsKey, TileProviderListModel, \
+    TILE_PROVIDERS
 
 
 class TestMapping(unittest.TestCase):
@@ -168,3 +174,237 @@ class TestMapMixin(WidgetTest):
         self.assertEqual(self.map_plot.ts_norm, QRectF(0.0, 0.5, 0.25, -0.25))
         self.assertEqual(mock_loader.get.call_count, 4)
         self.assertEqual(len(self.map_plot.futures), 4)
+
+
+class TestTileProvidersRegistry(GuiTest):
+    def setUp(self):
+        assert len(_TILE_PROVIDERS) == 6  # Sanity check
+
+        self.store = {}
+
+        class MockSettings:
+            @staticmethod
+            def value(key, default=None, type=None):
+                value = self.store.get(key, default)
+                if type:
+                    value = type(value)
+                return value
+
+            @staticmethod
+            def setValue(key, value):
+                self.store[key] = value
+
+        self.patch_settings = patch(
+            "orangecontrib.geo.widgets.plotutils.QSettings", lambda: MockSettings())
+        self.patch_settings.start()
+        self.addCleanup(self.patch_settings.stop)
+
+        self.mock_providers = [
+            _TileProvider(
+                name=f"Mock {i}",
+                url=f"https://mock{i}.com/{{z}}/{{x}}/{{y}}.png",
+                attribution=f"Mock Attribution {i}",
+                size=256,
+                max_zoom=5,
+            ) for i in range(2)
+        ]
+
+    def tearDown(self):
+        TileProvidersRegistry.instance = None
+
+    def test_tile_provider_is_a_singleton(self):
+        registry1 = TileProvidersRegistry()
+        registry2 = TileProvidersRegistry()
+        self.assertIs(registry1, registry2)
+
+    def test_tile_provider_init_is_not_called_multiple_times(self):
+        with patch.object(QObject, "__init__", return_value=None) as mock_init:
+            TileProvidersRegistry()
+            TileProvidersRegistry()
+            self.assertEqual(mock_init.call_count, 1)
+
+    def test_provider_gets_defaults(self):
+        registry = TileProvidersRegistry()
+        self.assertEqual(registry.providers, _TILE_PROVIDERS)
+        self.assertIsNot(registry.providers, _TILE_PROVIDERS)
+
+    def test_retrieves_settings(self):
+        mock = _TILE_PROVIDERS[:4] + self.mock_providers
+        self.store[SettingsKey] = _TILE_PROVIDERS[:4] + self.mock_providers
+        registry = TileProvidersRegistry()
+        self.assertEqual(registry.providers, self.store[SettingsKey])
+        self.assertIsNot(registry.providers, mock)
+
+    def test_len(self):
+        registry = TileProvidersRegistry()
+        self.assertEqual(len(registry), len(_TILE_PROVIDERS))
+
+        registry.append(self.mock_providers[0])
+        registry.append(self.mock_providers[1])
+        self.assertEqual(len(registry), len(_TILE_PROVIDERS) + 2)
+
+    def test_getitem(self):
+        registry = TileProvidersRegistry()
+        registry.append(self.mock_providers[0])
+        registry.append(self.mock_providers[1])
+
+        self.assertEqual(registry[0], _TILE_PROVIDERS[0])
+        self.assertEqual(registry[1], _TILE_PROVIDERS[1])
+        self.assertEqual(registry[len(_TILE_PROVIDERS)], self.mock_providers[0])
+        self.assertEqual(registry[len(_TILE_PROVIDERS) + 1], self.mock_providers[1])
+        self.assertEqual(registry[-1], self.mock_providers[1])
+        with self.assertRaises(IndexError):
+            _ = registry[len(_TILE_PROVIDERS) + 2]
+
+    def test_append_and_get(self):
+        registry = TileProvidersRegistry()
+        registry.append(self.mock_providers[0])
+        registry.append(self.mock_providers[1])
+
+        provider = registry.get(_TILE_PROVIDERS[1].name)
+        self.assertEqual(registry.get(provider.name), provider)
+        self.assertEqual(registry.get("Mock 0"), self.mock_providers[0])
+        self.assertEqual(registry.get("Mock 1"), self.mock_providers[1])
+
+        self.assertEqual(
+            registry.get("Nonexistent Provider", default=provider.name),
+            provider)
+        self.assertEqual(
+            registry.get("Nonexistent Provider"),
+            registry.get(DEFAULT_TILE_PROVIDER))
+        registry.providers = [self.mock_providers[0], self.mock_providers[1]]
+        self.assertEqual(
+            registry.get("Nonexistent Provider"),
+            self.mock_providers[0])
+
+    def test_set_item(self):
+        registry = TileProvidersRegistry()
+
+        spy1 = QSignalSpy(registry.providers_about_to_be_changed)
+        spy2 = QSignalSpy(registry.providers_changed)
+        new_provider = _TileProvider(
+            name="New Provider",
+            url="https://newprovider.com/{z}/{x}/{y}.png",
+            attribution="New Attribution",
+            size=256,
+            max_zoom=5,
+        )
+        registry[3] = new_provider
+
+        self.assertEqual(registry.providers,
+            _TILE_PROVIDERS[:3] + [new_provider] + _TILE_PROVIDERS[4:])
+        self.assertEqual(list(self.store.values()), [registry.providers])
+        self.assertEqual(len(spy1), 1)
+        self.assertEqual(len(spy2), 1)
+
+    def test_del_item(self):
+        registry = TileProvidersRegistry()
+        spy1 = QSignalSpy(registry.providers_about_to_be_changed)
+        spy2 = QSignalSpy(registry.providers_changed)
+        del registry[2]
+        self.assertEqual(len(spy1), 1)
+        self.assertEqual(len(spy2), 1)
+        self.assertEqual(registry.providers, _TILE_PROVIDERS[:2] + _TILE_PROVIDERS[3:])
+        self.assertEqual(list(self.store.values()), [registry.providers])
+
+    def test_iter(self):
+        registry = TileProvidersRegistry()
+        registry.append(self.mock_providers[0])
+        registry.append(self.mock_providers[1])
+        self.assertEqual(list(registry.providers),
+                         _TILE_PROVIDERS + self.mock_providers)
+
+    def test_reset_builtins(self):
+        registry = TileProvidersRegistry()
+        # Sanity check, other test mutated this and caused this test to fail
+        assert registry.providers == _TILE_PROVIDERS
+        registry.append(self.mock_providers[0])
+        registry.append(self.mock_providers[1])
+        changed = dataclasses.replace(registry[2], size=128)
+        registry[2] = changed
+        del registry[3]
+
+        spy1 = QSignalSpy(registry.providers_about_to_be_changed)
+        spy2 = QSignalSpy(registry.providers_changed)
+
+        registry.reset_builtins()
+        self.assertEqual(len(spy1), 1)
+        self.assertEqual(len(spy2), 1)
+        self.assertEqual(registry.providers, _TILE_PROVIDERS + [changed] + self.mock_providers)
+
+    def test_save_to_file(self):
+        registry = TileProvidersRegistry()
+        registry.append(self.mock_providers[0])
+        registry.append(self.mock_providers[1])
+
+        f = io.StringIO()
+        registry.save_to_file(f)
+        f.seek(0)
+        data = json.load(f)
+        self.assertEqual(data, [dataclasses.asdict(p) for p in registry.providers])
+
+    def test_load_from_file(self):
+        registry = TileProvidersRegistry()
+        registry.append(self.mock_providers[0])
+        registry.append(self.mock_providers[1])
+
+        data = [dataclasses.asdict(p) for p in registry.providers]
+        f = io.StringIO(json.dumps(data))
+        f.seek(0)
+        registry.load_from_file(f)
+        self.assertEqual(registry.providers, _TILE_PROVIDERS + self.mock_providers)
+
+        for s in ("invalid json", [], [1, 2, 3],
+                  {"name": "Incomplete Provider"},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{z}/{x}/{y}.png",
+                   "attribution": "Attribution", "size": 256, "max_zoom": 5, "extra_field": "extra"},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{z}/{x}/{y}.png",
+                   "attribution": "Attribution", "size": 0, "max_zoom": 5, "extra_field": "extra"},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{s}/{x}/{y}.png",
+                   "attribution": "Attribution", "size": 1, "max_zoom": 5},
+                  {"name": "Overcomplete Provider", "url": None,
+                   "attribution": "Attribution", "size": 13, "max_zoom": 5},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{s}/{x}/{y}.png",
+                   "attribution": None, "size": 1, "max_zoom": 5},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{s}/{x}/{y}.png",
+                   "attribution": "Attribution", "size": "1", "max_zoom": 5},
+                  {"name": "Overcomplete Provider", "url": "http://example.com/{s}/{x}/{y}.png",
+                   "attribution": "Attribution", "size": 1, "max_zoom": "5"},
+                  ):
+            f = io.StringIO(str(s))
+            f.seek(0)
+            self.assertRaises(ValueError, registry.load_from_file, f)
+
+
+class TestTileProviderListModel(GuiTest):
+    def setUp(self):
+        self.patch_settings = patch(
+            "orangecontrib.geo.widgets.plotutils.QSettings.setValue")
+        self.patch_settings.start()
+        self.addCleanup(self.patch_settings.stop)
+
+        self.registry = TileProvidersRegistry()
+        providers = self.registry.providers
+        self.addCleanup(setattr, self.registry, "providers", providers)
+
+        # Just for the case the widget settings have been changed manually and stored
+        self.registry.providers = _TILE_PROVIDERS.copy()
+        self.model = TileProviderListModel()
+
+    def test_row_count(self):
+        self.assertEqual(self.model.rowCount(), len(self.registry))
+        spy = QSignalSpy(self.model.modelReset)
+        print(len(self.registry.providers))
+        del self.registry[2]
+        self.assertEqual(self.model.rowCount(), len(self.registry))
+        self.assertEqual(len(spy), 1)
+
+    def test_data(self):
+        for row in range(len(self.registry)):
+            provider = self.registry[row]
+            index = self.model.index(row, 0)
+            self.assertEqual(self.model.data(index, Qt.DisplayRole), provider.name)
+
+
+if __name__ == "__main__":
+    unittest.main()

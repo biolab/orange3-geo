@@ -49,14 +49,10 @@ from Orange.widgets.settings import Setting, SettingProvider, rename_setting, \
 from orangecontrib.geo.utils import find_lat_lon
 from orangecontrib.geo.mapper import latlon2region, get_shape
 from orangecontrib.geo.widgets.plotutils import MapMixin, MapViewBox, \
-    _TileProvider, deg2norm
+    deg2norm, DEFAULT_LIGHT_PROVIDER, TileProvidersRegistry, \
+    TileProviderListModel
 
-CHOROPLETH_TILE_PROVIDER = _TileProvider(
-    url="http://tile.geofabrik.de/c92f820ec8abcfd7f51b075e3efa157e//{z}/{x}/{y}.png",
-    attribution='<a href="http://geofabrik.di">Geofabrik</a>',
-    size=256,
-    max_zoom=19
-)
+CHOROPLETH_TILE_PROVIDER = DEFAULT_LIGHT_PROVIDER
 
 _ChoroplethRegion = NamedTuple(
     "_ChoroplethRegion", [
@@ -552,11 +548,17 @@ class OWChoroplethPlotMapGraph(MapMixin, OWChoroplethPlotGraph):
     """
     This just adds maps as background.
     """
+    tile_provider_key = Setting(CHOROPLETH_TILE_PROVIDER)
 
     def __init__(self, widget, parent):
         OWChoroplethPlotGraph.__init__(self, widget, parent)
         MapMixin.__init__(self)
-        self._update_tile_provider(CHOROPLETH_TILE_PROVIDER)
+        self.update_tile_provider()
+
+    def update_tile_provider(self):
+        provider = TileProvidersRegistry().get(self.tile_provider_key,
+                                               CHOROPLETH_TILE_PROVIDER)
+        super()._update_tile_provider(provider)
 
     def update_view_range(self, match_data=True):
         if match_data:
@@ -689,6 +691,7 @@ class OWChoropleth(OWWidget):
         box = gui.vBox(self.mainArea, True, margin=0)
         self.graph = self.GRAPH_CLASS(self, box)
         box.layout().addWidget(self.graph.plot_widget)
+        TileProvidersRegistry().providers_changed.connect(self.graph.update_tile_provider)
 
     def _add_controls(self):
         options = dict(
@@ -697,6 +700,11 @@ class OWChoropleth(OWWidget):
         )
 
         lat_lon_box = gui.vBox(self.controlArea, box="Map settings", spacing=0)
+        cb = gui.comboBox(lat_lon_box, self, 'graph.tile_provider_key',
+                          label='Map:', model=TileProviderListModel(),
+                     callback=self.graph.update_tile_provider, **options)
+        cb.setCurrentText(self.graph.tile_provider_key)
+
         self.lat_lon_model = DomainModel(DomainModel.MIXED,
                                          valid_types=(ContinuousVariable,))
         gui.comboBox(lat_lon_box, self, 'attr_lat', label='Latitude:',

@@ -1066,8 +1066,6 @@ widgets/__init__.py:
     {DEVELOP_ROOT}/doc/_build/html/index.html: false
     http://orange3-geo.readthedocs.io/en/latest/: false
 widgets/owchoropleth.py:
-    http://tile.geofabrik.de/c92f820ec8abcfd7f51b075e3efa157e//{z}/{x}/{y}.png: false
-    <a href="http://geofabrik.di">Geofabrik</a>: false
     _ChoroplethRegion: false
     id: false
     qpolys: false
@@ -1137,6 +1135,8 @@ widgets/owchoropleth.py:
             {} points are not in any region.: {} točk(a) ne pripada nobeni regiji.
         def `_add_controls`:
             Map settings: Nastavitve zemljevida
+            graph.tile_provider_key: false
+            Map:: Zemljevid:
             attr_lat: false
             Latitude:: Širina:
             attr_lon: false
@@ -1401,6 +1401,47 @@ widgets/owgeotransform.py:
             {data.transf_names[0]} / {data.transf_names[1]}: false
     __main__: false
     http://datasets.biolab.si/core/philadelphia-crime.csv.xz: false
+widgets/owmanagegeoservices.py:
+    class `TileProviderModel`:
+        Name: Ime
+        URL: URL
+        Size: Velikost
+        Max Zoom: Povečava
+        Attribution: Avtorske pravice
+        def `data`:
+            '⦿ ': false
+        def `setData`:
+            size: false
+            url: false
+    class `OWManageGeoServices`:
+        Manage Geo Services: Upravljanje geografskih storitev
+        Manage services used by Geo Widgets: Upravljanje storitev, ki jih uporabljajo geografski pripomočki
+        icons/GeoManager.svg: false
+        geo tile: geo tile zemljevidi
+        def `__init__`:
+            Tile Providers: Ponudniki zemljevidov
+            Add Provider: Dodaj ponudnika
+            Remove Selected Providers: Odstrani izbrane ponudnike
+            Restore Default Providers: Obnovi privzete ponudnike
+            Save to File: Shrani v datoteko
+            Load: Naloži
+        def `add_tile_provider`:
+            Custom provider: Nov ponudnik
+            http://<HOST>/{z}/{x}/{y}.png: false
+        def `remove_selected_providers`:
+            Remove Providers: Odstrani ponudnike
+            Cannot remove all providers.: Ni mogoče odstraniti vseh ponudnikov.
+        def `save`:
+            Save Tile Providers: Shrani ponudnike zemljevidov
+            JSON Files (*.json);;All Files (*): Datoteke JSON (*.json);;Vse datoteke (*)
+            w: false
+            utf-8: false
+        def `load`:
+            Load Tile Providers: Naloži ponudnike zemljevidov
+            JSON Files (*.json);;All Files (*): Datoteke JSON (*.json);;Vse datoteke (*)
+            r: false
+            utf-8: false
+    __main__: false
 widgets/owmap.py:
     class `OWMap`:
         Geo Map: Zemljevid
@@ -1471,7 +1512,7 @@ widgets/plotutils.py:
     &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>: false
     Greyscale: Sivinski
     http://tile.geofabrik.de/c92f820ec8abcfd7f51b075e3efa157e//{z}/{x}/{y}.png: false
-    <a href="http://geofabrik.di">Geofabrik</a>: false
+    <a href="http://geofabrik.de">Geofabrik</a>: false
     Topographic: Topografski
     http://tile.opentopomap.org/{z}/{x}/{y}.png: false
     'map data: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)': false
@@ -1484,6 +1525,22 @@ widgets/plotutils.py:
     Dark: Temen
     https://basemap.queeniemella.cc/tiles/countries/{z}/{x}/{y}.png: false
     &copy; <a href="https://queeniemella.cc">queeniemella</a> | &copy;  <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors: false
+    orange3-addons/geo/tile-providers: false
+    class `TileProvidersRegistry`:
+        def `changes_settings`:
+            def `wrapped`:
+                TileProvidersRegistry: false
+        def `get`:
+            Tile providers registry is empty: false
+        def `load_from_file`:
+            def `check_types`:
+                "{tp['name']}: field must be {field.type}, ": false
+                not {value_type}: false
+            No tile providers found in the file.: false
+            size: false
+            url: false
+            Invalid tile provider format in the file.: false
+            'Failed to load tile providers: {e}': false
     class `MapViewBox`:
         def `mouseDragEvent`:
             mouseMode: false
