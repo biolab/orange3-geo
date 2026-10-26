@@ -230,10 +230,25 @@ class TestTileProvidersRegistry(GuiTest):
 
     def test_retrieves_settings(self):
         mock = _TILE_PROVIDERS[:4] + self.mock_providers
-        self.store[SettingsKey] = _TILE_PROVIDERS[:4] + self.mock_providers
+        self.store[SettingsKey] = [dataclasses.asdict(tp) for tp in mock]
         registry = TileProvidersRegistry()
-        self.assertEqual(registry.providers, self.store[SettingsKey])
+        self.assertEqual(registry.providers, mock)
         self.assertIsNot(registry.providers, mock)
+        self.assertIsNot(registry.providers[0], _TILE_PROVIDERS[0])
+
+    def test_retrieves_settings_fallback(self):
+        self.store[SettingsKey] = [1]
+        registry = TileProvidersRegistry()
+        self.assertEqual(registry.providers, _TILE_PROVIDERS)
+        self.assertIsNot(registry.providers, _TILE_PROVIDERS)
+        self.assertIsNot(registry.providers[0], _TILE_PROVIDERS[0])
+
+    def test_retrieves_settings_fallback(self):
+        self.store[SettingsKey] = [1]
+        registry = TileProvidersRegistry()
+        self.assertEqual(registry.providers, _TILE_PROVIDERS)
+        self.assertIsNot(registry.providers, _TILE_PROVIDERS)
+        self.assertIsNot(registry.providers[0], _TILE_PROVIDERS[0])
 
     def test_len(self):
         registry = TileProvidersRegistry()
@@ -293,7 +308,9 @@ class TestTileProvidersRegistry(GuiTest):
 
         self.assertEqual(registry.providers,
             _TILE_PROVIDERS[:3] + [new_provider] + _TILE_PROVIDERS[4:])
-        self.assertEqual(list(self.store.values()), [registry.providers])
+        self.assertEqual(
+            list(self.store.values()),
+            [[dataclasses.asdict(tp) for tp in registry.providers]])
         self.assertEqual(len(spy1), 1)
         self.assertEqual(len(spy2), 1)
 
@@ -304,8 +321,10 @@ class TestTileProvidersRegistry(GuiTest):
         del registry[2]
         self.assertEqual(len(spy1), 1)
         self.assertEqual(len(spy2), 1)
-        self.assertEqual(registry.providers, _TILE_PROVIDERS[:2] + _TILE_PROVIDERS[3:])
-        self.assertEqual(list(self.store.values()), [registry.providers])
+        self.assertSequenceEqual(registry.providers, _TILE_PROVIDERS[:2] + _TILE_PROVIDERS[3:])
+        self.assertEqual(
+            list(self.store.values()),
+            [[dataclasses.asdict(tp) for tp in registry.providers]])
 
     def test_iter(self):
         registry = TileProvidersRegistry()

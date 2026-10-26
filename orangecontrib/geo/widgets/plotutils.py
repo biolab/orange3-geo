@@ -1,13 +1,14 @@
 import dataclasses
 import os
 import weakref
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from io import BytesIO
 from concurrent.futures import Future
 from typing import List, Optional
 from functools import partial, wraps
 from contextlib import closing
 import json
+from copy import deepcopy
 
 from PIL import Image
 import numpy as np
@@ -135,8 +136,17 @@ class TileProvidersRegistry(QObject):
         if cls.instance is None:
             cls.instance = super().__new__(cls)
             QObject.__init__(cls.instance, None)
-            cls.instance.providers = (
-                QSettings().value(SettingsKey, _TILE_PROVIDERS.copy()))
+
+            cls.instance.providers = None
+            stored_providers: Optional[dict] = QSettings().value(SettingsKey)
+            if stored_providers is not None:
+                try:
+                    cls.instance.providers = \
+                        [_TileProvider(**tp) for tp in stored_providers]
+                except TypeError:
+                    pass
+            if cls.instance.providers is None:
+                cls.instance.providers = deepcopy(_TILE_PROVIDERS)
         return cls.instance
 
     def __init__(self):
@@ -158,7 +168,9 @@ class TileProvidersRegistry(QObject):
             try:
                 return func(self, *args, **kwargs)
             finally:
-                QSettings().setValue(SettingsKey, self.providers)
+                QSettings().setValue(
+                    SettingsKey,
+                    [asdict(tp) for tp in self.providers])
                 self.providers_changed.emit()
 
         return wrapped
