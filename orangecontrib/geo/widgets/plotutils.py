@@ -127,32 +127,36 @@ DEFAULT_LIGHT_PROVIDER = "Greyscale"
 SettingsKey = "orange3-addons/geo/tile-providers"
 
 
+_tile_provider_instance = None
+_tp_instance_initialized = False
+
 class TileProvidersRegistry(QObject):
     providers_about_to_be_changed = Signal()
     providers_changed = Signal()
-    instance = None
 
     def __new__(cls):
-        if cls.instance is None:
-            cls.instance = super().__new__(cls)
-            QObject.__init__(cls.instance, None)
-
-            cls.instance.providers = None
-            stored_providers: Optional[dict] = QSettings().value(SettingsKey)
-            if stored_providers is not None:
-                try:
-                    cls.instance.providers = \
-                        [_TileProvider(**tp) for tp in stored_providers]
-                except TypeError:
-                    pass
-            if cls.instance.providers is None:
-                cls.instance.providers = deepcopy(_TILE_PROVIDERS)
-        return cls.instance
+        global _tile_provider_instance
+        if _tile_provider_instance is None:
+            _tile_provider_instance = super().__new__(cls)
+        return _tile_provider_instance
 
     def __init__(self):
-        # Inherited __init__ must be called only once, so we do it in __new__
-        # We must override __init__ to avoid calling it again
-        pass
+        global _tp_instance_initialized
+        if _tp_instance_initialized:
+            return
+
+        QObject.__init__(self)
+        _tp_instance_initialized = True
+
+        self.providers = None
+        stored_providers: Optional[dict] = QSettings().value(SettingsKey)
+        if stored_providers is not None:
+            try:
+                self.providers = [_TileProvider(**p) for p in stored_providers]
+            except TypeError:
+                pass
+        if self.providers is None:
+            self.providers = deepcopy(_TILE_PROVIDERS)
 
     def __len__(self):
         return len(self.providers)

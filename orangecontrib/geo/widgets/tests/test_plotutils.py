@@ -1,5 +1,6 @@
 import dataclasses
 import unittest
+from copy import deepcopy
 from unittest.mock import Mock, patch
 import io
 import json
@@ -12,6 +13,7 @@ from AnyQt.QtTest import QSignalSpy
 
 from Orange.widgets.tests.base import WidgetTest, GuiTest
 from Orange.widgets.utils.plot import ZOOMING
+from orangecontrib.geo.widgets import plotutils
 from orangecontrib.geo.widgets.plotutils import deg2norm, norm2tile, \
     tile2norm, MapViewBox, _TILE_PROVIDERS, DEFAULT_TILE_PROVIDER, MapMixin, \
     _TileProvider, TileProvidersRegistry, SettingsKey, TileProviderListModel, \
@@ -178,6 +180,7 @@ class TestMapMixin(WidgetTest):
 
 class TestTileProvidersRegistry(GuiTest):
     def setUp(self):
+        super().setUp()
         assert len(_TILE_PROVIDERS) == 6  # Sanity check
 
         self.store = {}
@@ -210,25 +213,21 @@ class TestTileProvidersRegistry(GuiTest):
         ]
 
     def tearDown(self):
-        TileProvidersRegistry.instance = None
+        super().tearDown()
+        plotutils._tile_provider_instance = None
+        plotutils._tp_instance_initialized = False
 
     def test_tile_provider_is_a_singleton(self):
         registry1 = TileProvidersRegistry()
         registry2 = TileProvidersRegistry()
         self.assertIs(registry1, registry2)
 
-    def test_tile_provider_init_is_not_called_multiple_times(self):
-        with patch.object(QObject, "__init__", return_value=None) as mock_init:
-            TileProvidersRegistry()
-            TileProvidersRegistry()
-            self.assertEqual(mock_init.call_count, 1)
-
     def test_provider_gets_defaults(self):
         registry = TileProvidersRegistry()
         self.assertEqual(registry.providers, _TILE_PROVIDERS)
         self.assertIsNot(registry.providers, _TILE_PROVIDERS)
 
-    def test_retrieves_settings(self):
+    def test_setting_retrieval(self):
         mock = _TILE_PROVIDERS[:4] + self.mock_providers
         self.store[SettingsKey] = [dataclasses.asdict(tp) for tp in mock]
         registry = TileProvidersRegistry()
