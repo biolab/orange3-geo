@@ -188,7 +188,7 @@ class OWChoroplethPlotGraph(gui.OWComponent, QObject):
     show_legend = Setting(True)
 
     def __init__(self, widget, parent=None):
-        QObject.__init__(self)
+        QObject.__init__(self, parent)
         gui.OWComponent.__init__(self, widget)
 
         self.view_box = MapViewBox(self)
