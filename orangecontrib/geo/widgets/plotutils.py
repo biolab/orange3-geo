@@ -67,16 +67,17 @@ def tile2norm(x, y, zoom):
 class _TileProvider:
     name: str
     url: str
+    dark: bool
     size: int
     max_zoom: int
     attribution: str
-    dark: bool = False
 
 
 _TILE_PROVIDERS = [
     _TileProvider(
         name="OpenStreetMap",
         url="http://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        dark=False,
         attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
         size=256,
         max_zoom=18
@@ -84,6 +85,7 @@ _TILE_PROVIDERS = [
     _TileProvider(
         name="Greyscale",
         url="http://tile.geofabrik.de/c92f820ec8abcfd7f51b075e3efa157e//{z}/{x}/{y}.png",
+        dark=False,
         attribution='<a href="http://geofabrik.de">Geofabrik</a>',
         size=256,
         max_zoom=19
@@ -91,6 +93,7 @@ _TILE_PROVIDERS = [
     _TileProvider(
         name="Topographic",
         url="http://tile.opentopomap.org/{z}/{x}/{y}.png",
+        dark=False,
         attribution='map data: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
         size=256,
         max_zoom=17
@@ -98,6 +101,7 @@ _TILE_PROVIDERS = [
     _TileProvider(
         name="Satellite",
         url="http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        dark=False,
         attribution="Sources: Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community",
         size=256,
         max_zoom=19
@@ -105,6 +109,7 @@ _TILE_PROVIDERS = [
     _TileProvider(
         name="Light",
         url="http://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+        dark=False,
         attribution='&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
         size=256,
         max_zoom=19

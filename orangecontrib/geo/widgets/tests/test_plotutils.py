@@ -1,6 +1,5 @@
 import dataclasses
 import unittest
-from copy import deepcopy
 from unittest.mock import Mock, patch
 import io
 import json
@@ -208,6 +207,7 @@ class TestTileProvidersRegistry(GuiTest):
                 url=f"https://mock{i}.com/{{z}}/{{x}}/{{y}}.png",
                 attribution=f"Mock Attribution {i}",
                 size=256,
+                dark=True,
                 max_zoom=5,
             ) for i in range(2)
         ]
@@ -301,6 +301,7 @@ class TestTileProvidersRegistry(GuiTest):
             url="https://newprovider.com/{z}/{x}/{y}.png",
             attribution="New Attribution",
             size=256,
+            dark=True,
             max_zoom=5,
         )
         registry[3] = new_provider
@@ -412,7 +413,6 @@ class TestTileProviderListModel(GuiTest):
     def test_row_count(self):
         self.assertEqual(self.model.rowCount(), len(self.registry))
         spy = QSignalSpy(self.model.modelReset)
-        print(len(self.registry.providers))
         del self.registry[2]
         self.assertEqual(self.model.rowCount(), len(self.registry))
         self.assertEqual(len(spy), 1)

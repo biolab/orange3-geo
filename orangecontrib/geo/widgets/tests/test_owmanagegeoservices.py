@@ -19,12 +19,12 @@ class TestTileProviderModel(GuiTest):
             _TILE_PROVIDERS[1:4] + \
             [_TileProvider(
                 name="Test", url="http://test.com/{z}/{x}/{y}.png", size=256,
-                max_zoom=18, attribution="Test")
+                max_zoom=18, attribution="Test", dark=True)
             ]
 
     def test_row_and_col_count(self):
         self.assertEqual(self.model.rowCount(), 4)
-        self.assertEqual(self.model.columnCount(), 5)
+        self.assertEqual(self.model.columnCount(), 6)
 
     def test_data(self):
         def assert_data(col, expected):
@@ -35,18 +35,30 @@ class TestTileProviderModel(GuiTest):
         for row in range(self.model.rowCount()):
             assert_data(0, "⦿ " * (row < 3) + self.model.registry[row].name)
             assert_data(1, self.model.registry[row].url)
-            assert_data(2, str(self.model.registry[row].size))
-            assert_data(3, str(self.model.registry[row].max_zoom))
-            assert_data(4, self.model.registry[row].attribution)
+            assert_data(3, str(self.model.registry[row].size))
+            assert_data(4, str(self.model.registry[row].max_zoom))
+            assert_data(5, self.model.registry[row].attribution)
+
+            self.assertIsNone(
+                self.model.data(
+                    self.model.index(row, 2),
+                    role=Qt.ItemDataRole.DisplayRole),
+                self.model.registry[row].dark)
+            self.assertEqual(
+                self.model.data(
+                    self.model.index(row, 2),
+                    role=Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked,
+                self.model.registry[row].dark)
+
             self.assertIsNone(
                 self.model.index(row, 0).data(Qt.ItemDataRole.TextAlignmentRole)
             )
             self.assertTrue(
-                self.model.index(row, 2).data(Qt.ItemDataRole.TextAlignmentRole)
+                self.model.index(row, 3).data(Qt.ItemDataRole.TextAlignmentRole)
                 &  Qt.AlignmentFlag.AlignRight
             )
             self.assertTrue(
-                self.model.index(row, 3).data(Qt.ItemDataRole.TextAlignmentRole)
+                self.model.index(row, 4).data(Qt.ItemDataRole.TextAlignmentRole)
                 &  Qt.AlignmentFlag.AlignRight
             )
 
@@ -55,19 +67,19 @@ class TestTileProviderModel(GuiTest):
         self.assertEqual(self.model.registry[3].name, "New Name")
 
         # Check type conversion for size and max_zoom
-        self.assertTrue(self.model.setData(self.model.index(3, 2), "32"))
+        self.assertTrue(self.model.setData(self.model.index(3, 3), "32"))
         self.assertEqual(self.model.registry[3].size, 32)
 
-        self.assertTrue(self.model.setData(self.model.index(3, 3), "10"))
+        self.assertTrue(self.model.setData(self.model.index(3, 4), "10"))
         self.assertEqual(self.model.registry[3].max_zoom, 10)
 
-        self.assertFalse(self.model.setData(self.model.index(3, 2), "invalid"))
+        self.assertFalse(self.model.setData(self.model.index(3, 3), "invalid"))
         self.assertEqual(self.model.registry[3].size, 32)  # unchanged
 
-        self.assertFalse(self.model.setData(self.model.index(3, 2), "0"))
+        self.assertFalse(self.model.setData(self.model.index(3, 3), "0"))
         self.assertEqual(self.model.registry[3].size, 32)  # unchanged
 
-        self.assertFalse(self.model.setData(self.model.index(3, 2), "-1"))
+        self.assertFalse(self.model.setData(self.model.index(3, 3), "-1"))
         self.assertEqual(self.model.registry[3].size, 32)  # unchanged
 
         self.assertFalse(self.model.setData(self.model.index(3, 1),

@@ -11,7 +11,7 @@ from orangecontrib.geo.widgets.plotutils import \
 
 
 class TileProviderModel(QAbstractTableModel):
-    HEADERS = ["Name", "URL", "Size", "Max Zoom", "Attribution"]
+    HEADERS = ["Name", "URL", "Dark", "Size", "Max Zoom", "Attribution"]
 
     def __init__(self):
         super().__init__()
@@ -27,6 +27,13 @@ class TileProviderModel(QAbstractTableModel):
 
     def data(self, index, role=Qt.DisplayRole):
         provider = self.registry[index.row()]
+
+        if index.column() == 2:
+            if role == Qt.ItemDataRole.CheckStateRole:
+                return Qt.CheckState.Checked if provider.dark \
+                    else Qt.CheckState.Unchecked
+            return None
+
         if role in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
             field = dataclasses.fields(_TileProvider)[index.column()]
             value = str(getattr(provider, field.name))
@@ -35,13 +42,19 @@ class TileProviderModel(QAbstractTableModel):
                     role ==  Qt.ItemDataRole.DisplayRole:
                 value = "⦿ " + value
             return value
-        if role == Qt.ItemDataRole.TextAlignmentRole and index.column() in (2, 3):
+        if role == Qt.ItemDataRole.TextAlignmentRole and index.column() in (3, 4):
             return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         return None
 
     def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
         row, col = index.row(), index.column()
         provider = self.registry[row]
+
+        if col == 2 and role == Qt.ItemDataRole.CheckStateRole:
+            value = Qt.CheckState(value) == Qt.CheckState.Checked
+            self.registry[row] = dataclasses.replace(provider, dark=value)
+            return True
+
         field = dataclasses.fields(_TileProvider)[col]
         try:
             value = field.type(value)
@@ -59,7 +72,10 @@ class TileProviderModel(QAbstractTableModel):
         return True
 
     def flags(self, index):
-        return super().flags(index) | Qt.ItemFlag.ItemIsEditable
+        flags = super().flags(index)
+        if index.column() == 2:
+            return flags | Qt.ItemFlag.ItemIsUserCheckable
+        return flags | Qt.ItemFlag.ItemIsEditable
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
@@ -134,6 +150,7 @@ class OWManageGeoServices(widget.OWWidget):
                 url="http://<HOST>/{z}/{x}/{y}.png",
                 size=256,
                 max_zoom=18,
+                dark=False,
                 attribution=""))
 
     def remove_selected_providers(self):

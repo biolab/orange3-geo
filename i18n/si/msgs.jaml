@@ -1405,6 +1405,7 @@ widgets/owmanagegeoservices.py:
     class `TileProviderModel`:
         Name: Ime
         URL: URL
+        Dark: Temno
         Size: Velikost
         Max Zoom: Povečava
         Attribution: Avtorske pravice
