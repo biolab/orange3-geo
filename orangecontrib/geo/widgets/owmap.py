@@ -276,10 +276,7 @@ class OWMap(OWDataProjectionWidget):
     def _update_label_colors(self):
         graph = self.graph
         palette = graph.plot_widget.palette()
-        if graph.tile_provider.dark:
-            color = Qt.white
-        else:
-            color = self.__default_label_color
+        color = Qt.white if graph.tile_provider.dark else Qt.black
         if palette.color(QPalette.Text) != color:
             palette.setColor(QPalette.Text, color)
             graph.plot_widget.setPalette(palette)
