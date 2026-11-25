@@ -243,7 +243,7 @@ class ToLatLon:
                               (cls.from_city_world,),
                               (cls.from_region,),
                               (cls.from_fips,),
-                              (cls.from_hasc, np.in1d(strlen, [2, 5, 8]).all())):
+                              (cls.from_hasc, np.isin(strlen, [2, 5, 8]).all())):
             if cond and not cond[0]:
                 continue
             if sum(map(bool, method(values))) >= len(values) / 2:

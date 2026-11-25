@@ -1,3 +1,6 @@
+import faulthandler
+faulthandler.enable()
+
 import unittest
 from unittest.mock import patch, Mock
 import numpy as np
@@ -21,6 +24,15 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
         WidgetOutputsTestMixin.init(cls)
         cls.same_input_output_domain = False
         cls.signal_name = "Data"
+
+    def tearDown(self):
+        from AnyQt.QtCore import QCoreApplication, QEvent
+        from orangewidget.tests.base import GuiTest
+
+        self.signal_manager.clear()
+        self._clear_widgets()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+        GuiTest.tearDown(self)
 
     @patch("orangecontrib.geo.widgets.plotutils.ImageLoader")
     def setUp(self, _):
@@ -53,7 +65,9 @@ class TestOWChoropleth(WidgetTest, WidgetOutputsTestMixin):
         self.assertEqual(self.widget.agg_func, "mode")
 
     def test_admin_level(self):
+        print("Testing admin level")
         self.send_signal(self.widget.Inputs.data, self.data)
+        print("Sending data")
         self.widget.admin_level = 0
         self.assertEqual(len(self.widget.region_ids), 2)
 

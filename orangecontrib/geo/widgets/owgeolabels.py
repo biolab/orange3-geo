@@ -147,7 +147,10 @@ class OWGeoLabels(widget.OWWidget):
             metas = (name_var, )
 
         values = addendum.values
-        values[pd.isna(values)] = ""
+        mask = pd.isna(values)
+        if np.any(mask):
+            values = values.copy()
+            values[mask] = ""
         return values, metas
 
     def send_report(self):
